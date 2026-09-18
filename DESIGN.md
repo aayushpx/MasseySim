@@ -1,20 +1,18 @@
 # Massey Uni Simulator — Game Design Doc
 
-> Working title: **"Palmy Peril: Survive the Semester"**
-> (affectionate parody — plain "Massey Uni Simulator" is the fallback)
+> Working title: **"Massey Uni Simulator"**
 
 ## Pitch
 
-You are a first-year student at a thinly-disguised, affectionately-parodied version of
-Massey University Manawatū ("Massey North University" in-game, campus in a fictional
-town we'll call Palmyton). Your only goal: survive 7 hilarious in-game days until
-Graduation Day without running out of Energy, maxing out Stress, or letting your GPA
-tank. Walk your little circle-person around a campus hub, spend each day's 3 action
-slots wisely between lectures, library study, cafeteria refuels, and flat naps, and
-survive the surprise events uni throws at you: pop quizzes, essay deadlines, a
+You are a first-year student at an affectionately-parodied version of Massey University's
+Manawatū campus. Your only goal: survive 7 hilarious in-game days until Graduation Day
+without running out of Energy, maxing out Stress, or letting your GPA tank. Walk your
+little round character around a stylised campus hub, spend each day's 3 action slots
+wisely between lectures, library study, cafeteria refuels, flat naps and a MUITSA club
+night, and survive the surprise events uni throws at you: pop quizzes, essay deadlines, a
 frenzied rush to class dodging campus geese, and the final boss — Finals Week. Short,
-laugh-out-loud, winnable in one focused 3–5 minute run, replayable for a better grade
-and better jokes.
+laugh-out-loud, winnable in one focused 3–5 minute run, replayable for a better grade and
+better jokes.
 
 ## Core loop (text diagram)
 
@@ -55,7 +53,7 @@ and better jokes.
 ### Time & passives (night auto-sleep after each 3-slot day)
 - Energy: +25 after sleep, −5 overnight drift (must eat to stay ahead)
 - Stress: −5 after sleep, +2 daily grind
-- GPA: −3 overnight (course content compunds/you forget stuff — keeps GPA pressurised)
+- GPA: −3 overnight (course content compouds/you forget stuff — keeps GPA pressurised)
 
 ### Zone activities (each costs 1 slot)
 | Zone | Activity (press E) | Energy | Stress | GPA | Notes |
@@ -65,6 +63,8 @@ and better jokes.
 | Library | Work on assignment | −4 | +5 | +8 | Only on the day it's due (else it's late!) |
 | Cafeteria ("Food Hall") | Eat + memes | +20 | −10 | 0 | Any slot |
 | Flat (Dorm) | Nap | +28 | −4 | 0 | Any slot (no, you can't nap your degree) |
+| **MUITSA Clubroom** | Chill at club night | −3 | −12 | 0 | Stress-relief side of campus |
+| **MUITSA Clubroom** | MUITSA Quiz Night | −2 | −8 | +3 | **Day 6 evening special** — reuses MCQ engine, club-flavoured questions |
 | Exam Hall | Finals | +6 stress | +0–12 | Only on Day 7, after exam sim |
 
 > Values shown are ticks on a 0–100 scale. Exact tuning happens in the playtest pass.
@@ -78,6 +78,8 @@ and better jokes.
   before the wifi drops" (timed key-press reaction minigame). Completing = +8 GPA.
   Missing the day = −10 GPA the next morning (a "late penalty" popup you only see
   once, so it doesn't feel like a gotcha).
+- **Day 6 evening = MUITSA QUIZ NIGHT**: an optional after-hours club event; silly
+  IT-student trivia, small GPA + stress relief. A taste of the society pre-finals.
 - **Day 7 = FINALS (Boss)**: multi-wave multiple-choice exam with a shrinking answer
   timer. Fewer correct = smaller GPA bump; flunk it but keep overall GPA ≥ 55 and you
   still squeak into graduation — hard but not save-scumming unfair.
@@ -91,16 +93,56 @@ and better jokes.
 6. `exam.tscn` — finals boss
 7. `win.tscn` — Graduation: confetti, joke speech, Play Again
 8. `lose.tscn` — "Dropped Out" with reason + Retry
+9. (optional) `clubroom` scene area — built into campus.tscn as a zone, not separate
 
 ## Controls
 - **WASD / arrows** move, **E / Space** interact, **Esc** pause/menu
 - Minigames: arrows/WASD, spacebar, number/letter keys for MCQ answers
 - Mouse click for menu buttons
 
+## Colours & Branding
+
+**Positioning disclaimer:** Massey University's name and colours are used descriptively
+in this affectionate, fan-made **parody** created for a student hackathon. This is an
+unofficial project with **no claim of endorsement** by Massey University or MUITSA, and
+the **actual Massey logo/crest is NOT used anywhere** in the game. All art is original
+placeholder work. Per the official brand library's own guidance, gold should not sit on
+bright blue, so we keep gold for call-to-actions/highlights only.
+
+**Primary palette — "official uni" zones (Lecture Hall, Library, Cafeteria, Flat, Exam):**
+sourced from Massey's published Brand Guidelines (brandlibrary.massey.ac.nz).
+
+| Role | Name | Hex |
+|------|------|-----|
+| Deep background / walls | Massey Dark Blue | `#0A2240` |
+| Zone plates / floors | Massey Blue | `#004b8d` |
+| Interactive highlights | Massey Light Blue | `#4789C8` |
+| Accents / player pop | Massey Bright Blue | `#25AAE1` |
+| Buttons / calls-to-action | Massey Gold (verified) | `#e4a024` |
+
+**Usage:** Gold for menu buttons + "press E" prompts + win screen. Bright Blue for the
+player character (contrasts against the darker blues). Light Blue for interactable
+zone cues. Dark Blue for UI bar backgrounds / building shells. All HUD bars in Gold +
+Dark Blue for readability on the map.
+
+**"Student club" palette — MUITSA Clubroom zone:** an **original, non-official** colour
+choice (MUITSA's own colour scheme is not public and was not used). Chosen to read
+clearly as "student society / esports club" rather than "official university".
+
+| Role | Hex |
+|------|-----|
+| Clubroom floor / background | `#23262E` (dark charcoal-navy) |
+| Club accent | `#A6D608` (lime) |
+| Club neon accent | `#9B5DE5` (violet) |
+| Club text / signage | `#F6F1E5` (cream) |
+
+The lime + violet + dark-grey combo contrasts hard against every Massey blue so the
+clubroom reads as a separate, grungier, student-run space at a glance.
+
 ## Art / audio (placeholders — explicitly to be swapped before submission)
-- Player = colored `ColorRect`/`CharacterBody2D` with a simple shape; zones = colored
-  `Area2D` plates with text signs; enemies=(geese) = white square w/ orange square beak.
-- One sky-blue background; HUD = `ProgressBar`s and `Label`s.
+- Player = a bright-blue rounded square/`CharacterBody2D`; zones = flat colour `Area2D`
+  plates with text signs; geese enemies = white square w/ orange square beak.
+- One dark-blue sky background; HUD = `ProgressBar`s and `Label`s in the palette above.
 - Audio: optional generated beeps via `AudioStreamGenerator` (no downloads).
 - **Placeholder list for later polish:** proper sprites, walking animations, a title
   screen image, background music, sound effects, confetti particles.
@@ -112,7 +154,7 @@ and better jokes.
   "finished(result)" back up.
 - Every scene has one `.tscn` + one `.gd` script. Minigames `change_scene` to campus
   with results already written into `GameState`.
-- One map scene with 5 zones as `Area2D` + a `Camera2D` that follows the player.
+- One map scene with zones as `Area2D` + a `Camera2D` that follows the player.
 
 ## Scope-cut list (cut in this order if time runs out)
 1. Best-grade memory / extra win-screen jokes
