@@ -5,21 +5,21 @@
 ## Pitch
 
 You are a first-year student at an affectionately-parodied version of Massey University's
-Manawatū campus. Your only goal: survive 7 hilarious in-game days until Graduation Day
-without running out of Energy, maxing out Stress, or letting your GPA tank. Walk your
-little round character around a stylised campus hub, spend each day's 3 action slots
-wisely between lectures, library study, cafeteria refuels, flat naps and a MUITSA club
-night, and survive the surprise events uni throws at you: pop quizzes, essay deadlines, a
-frenzied rush to class dodging campus geese, and the final boss — Finals Week. Short,
-laugh-out-loud, winnable in one focused 3–5 minute run, replayable for a better grade and
-better jokes.
+Manawatū campus. Pick one of four degrees, then survive 7 hilarious in-game days until
+Graduation Day without running out of Energy, maxing out Stress, or letting your GPA
+tank. Walk your little round character around a stylised campus hub, spend each day's 3
+action slots wisely between lectures, library study, cafeteria refuels, flat naps and a
+MUITSA club night, and survive the surprise events uni throws at you: pop quizzes, essay
+deadlines, a frenzied rush to class dodging campus geese, and the final boss — Finals
+Week. Short, laugh-out-loud, winnable in one focused 3–5 minute run, replayable with a
+different degree and better jokes.
 
 ## Core loop (text diagram)
 
 ```
         ┌─────────────────────────────────────────────┐
         │                                             │
-        │      Main Menu → Start Run (Day 1)          │
+        │  Main Menu → Choose Your Degree → Start     │
         │              │                              │
         │              v                              │
         │   ┌─── Campus Hub: walk to a ZONE ────┐     │
@@ -37,6 +37,37 @@ better jokes.
         │                          Any meter out of range? ─► Dropped Out (LOSE)
         └─────────────────────────────────────────────┘
 ```
+
+## Choose Your Degree
+
+Before each run you pick **one of exactly four degrees**:
+**Computer Science, Software Engineering, Veterinary Science, Food Science.**
+
+**What stays IDENTICAL across degrees (do not build four games):**
+- Core loop, campus map, the 5 base zones, all meters, the daily schedule
+  (pop quizzes, rush-to-class geese, essay deadlines, finals), and every
+  numeric rule in this doc. One shared codebase, one shared balance.
+
+**What changes per degree (kept deliberately lightweight):**
+- **Flavour text**: dialogue, event blurbs, HUD/UI copy and lecturer jokes
+  reference the chosen degree — the SAME underlying event/mechanic with a
+  different coat of paint (a Vet Science player faces an "animal handling"
+  version of an event; a CompSci player gets a "debugging" version).
+- **Exactly ONE unique small event per degree** (see table), reusing an
+  existing minigame engine rather than writing a bespoke minigame.
+- **One-line ending blurb** on the Graduation screen per degree.
+
+| Degree | Unique event (name it, keep it silly) | Day/slot | Reuses engine |
+|--------|---------------------------------------|----------|---------------|
+| Computer Science | "Sunday Night Segfault" — pick the fix before the build server melts (MCQ) | Day 3 evening | pop_quiz |
+| Software Engineering | "Sprint Stand-Up Sprint" — answer standup questions before the scrum master's timer hits zero (timed taps) | Day 5 afternoon | essay_sprint |
+| Veterinary Science | "The Great Llama Upheaval" — the farm demo llama escapes; choose the right capture options fast (MCQ) | Day 4 afternoon | pop_quiz |
+| Food Science | "Mystery Pavlova Panel" — blind taste-test; name the flavour before the judges judge you (timed taps) | Day 5 evening | essay_sprint |
+
+**MUITSA appears for EVERY degree** regardless of choice — it's a cross-faculty
+tech society, so the clubroom (purple/gold palette) works as a recruitment
+night for any of the four degrees. If the unique events get cut for time, all
+degrees still differ in flavour text + ending blurb.
 
 ## Win / Lose conditions (explicit, Balance Pass 1 — will tune in playtest)
 
@@ -86,14 +117,15 @@ better jokes.
 
 ## Scenes / screens
 1. `main_menu.tscn` — title, "Start Semester", controls, best-grade memory (optional)
-2. `campus.tscn` — top-down hub + HUD (Energy / Stress / GPA bars, day counter, slot dots)
-3. `pop_quiz.tscn` — MCQ minigame overlay (full scene swap for simplicity)
-4. `rush_to_class.tscn` — dodge-minigame scene
-5. `essay_sprint.tscn` — "finish assignment" reaction minigame
-6. `exam.tscn` — finals boss
-7. `win.tscn` — Graduation: confetti, joke speech, Play Again
-8. `lose.tscn` — "Dropped Out" with reason + Retry
-9. (optional) `clubroom` scene area — built into campus.tscn as a zone, not separate
+2. `degree_select.tscn` — pick CS / SE / Vet / Food Science (shared core, per-degree flavour)
+3. `campus.tscn` — top-down hub + HUD (Energy / Stress / GPA bars, day counter, slot dots)
+4. `pop_quiz.tscn` — MCQ minigame overlay (full scene swap for simplicity)
+5. `rush_to_class.tscn` — dodge-minigame scene
+6. `essay_sprint.tscn` — "finish assignment" reaction minigame
+7. `exam.tscn` — finals boss
+8. `win.tscn` — Graduation: confetti, joke speech, Play Again
+9. `lose.tscn` — "Dropped Out" with reason + Retry
+10. (optional) `clubroom` scene area — built into campus.tscn as a zone, not separate
 
 ## Controls
 - **WASD / arrows** move, **E / Space** interact, **Esc** pause/menu
@@ -162,13 +194,17 @@ clubroom reads as a separate, energetic, student-run space at a glance.
 - One map scene with zones as `Area2D` + a `Camera2D` that follows the player.
 
 ## Scope-cut list (cut in this order if time runs out)
-1. Best-grade memory / extra win-screen jokes
-2. Rush-to-Class minigame → replace with a 3-second "hold to not be late" timer
-3. Generated audio beeps
-4. Essay reaction minigame → replace with a plain "spend Friday library slot" choice
-5. Pop quiz question bank variety (ships with 6–9 questions)
-6. Particles/animations/kill-screens
-7. Pause menu (Esc)
+1. **Per-degree unique minigames** → fall back to flavour-text-only differences
+   (degrees still differ in jokes + ending blurb)
+2. Best-grade memory / extra win-screen jokes
+3. Rush-to-Class minigame → replace with a 3-second "hold to not be late" timer
+4. Generated audio beeps
+5. Essay reaction minigame → replace with a plain "spend Friday library slot" choice
+6. Pop quiz question bank variety (ships with 6–9 questions)
+7. Particles/animations/kill-screens
+8. Pause menu (Esc)
+9. **Degree-select screen** (LAST thing to cut) → fall back to a single fixed
+   "undeclared major" playthrough, in which case MUITSA still appears
    ...NEVER cut: main menu, campus loop, meters, exam, win, lose, retry.
 
 ## What "done" looks like for the hackathon
