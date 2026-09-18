@@ -10,6 +10,7 @@ func _ready() -> void:
     _check("quiz route + reward", _quiz_route())
     _check("win path after exam at 55+", _win_path())
     _check("exam fail path", _fail_path())
+    _check("day advance does not read slot_name out of bounds", _advance_roundtrip())
     if failures == 0:
         print("FLOW TEST: PASS")
     else:
@@ -66,3 +67,20 @@ func _fail_path() -> bool:
     return mini == "res://scenes/quiz.tscn" \
         and GameState.lost_reason != "" \
         and next == "res://scenes/lose.tscn"
+
+# Regression for the crash: a meters_changed listener (exactly what the campus
+# HUD does) calls slot_name() while the day is advancing. Pre-fix this read an
+# out-of-bounds index 3; post-fix the slot index resets at the top of the
+# advance, so this must complete and leave us on Day 2, Morning.
+func _advance_roundtrip() -> bool:
+    GameState.start_run("Computer Science")
+    var listener := func() -> void:
+        var _s: String = GameState.slot_name()
+    GameState.meters_changed.connect(listener)
+    GameState.perform_option("cafeteria", "eat")
+    GameState.perform_option("cafeteria", "eat")
+    GameState.perform_option("cafeteria", "eat")
+    GameState.meters_changed.disconnect(listener)
+    return GameState.day == 2 \
+        and GameState.slots_used == 0 \
+        and GameState.slot_name() == "Morning"

@@ -274,6 +274,10 @@ func _after_action() -> void:
     emit_signal("day_changed")
 
 func _advance_day() -> void:
+    # IMPORTANT: reset the slot index BEFORE any _add() calls. Each _add()
+    # emits meters_changed, which the campus HUD reacts to by calling
+    # slot_name() - reading the stale end-of-day index (3) out of bounds.
+    slots_used = 0
     # Night auto-sleep: rest up...
     _add("energy", 22.0)
     _add("energy", -13.0)     # overnight drift: even asleep you leak battery
@@ -286,7 +290,6 @@ func _advance_day() -> void:
         _add("gpa", -LATE_PENALTY)
         toast_message = "Assignment from Day %d was late! GPA -%d" % [day, int(LATE_PENALTY)]
     day += 1
-    slots_used = 0
     if day <= GAME_DAYS:
         emit_signal("day_changed")
     elif not exam_taken:
