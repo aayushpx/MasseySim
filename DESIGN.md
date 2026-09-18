@@ -110,34 +110,39 @@ placeholder work. Per the official brand library's own guidance, gold should not
 bright blue, so we keep gold for call-to-actions/highlights only.
 
 **Primary palette — "official uni" zones (Lecture Hall, Library, Cafeteria, Flat, Exam):**
-sourced from Massey's published Brand Guidelines (brandlibrary.massey.ac.nz).
+sourced from Massey University's published Brand Guidelines (brandlibrary.massey.ac.nz) —
+search-confirmed on release day (all five hexes below match the guidelines).
 
-| Role | Name | Hex |
-|------|------|-----|
-| Deep background / walls | Massey Dark Blue | `#0A2240` |
-| Zone plates / floors | Massey Blue | `#004b8d` |
-| Interactive highlights | Massey Light Blue | `#4789C8` |
-| Accents / player pop | Massey Bright Blue | `#25AAE1` |
-| Buttons / calls-to-action | Massey Gold (verified) | `#e4a024` |
+| Role | Name | Hex | Source |
+|------|------|-----|--------|
+| Deep background / walls | Massey Dark Blue | `#0A2240` | official brand page |
+| Zone plates / floors | Massey Blue | `#004b8d` | official brand page |
+| Interactive highlights | Massey Light Blue | `#4789C8` | official brand page |
+| Accents / player pop | Massey Bright Blue | `#25AAE1` | official brand page |
+| Buttons / calls-to-action | Massey Gold | `#e4a024` | official brand page (Pantone 130C) |
 
 **Usage:** Gold for menu buttons + "press E" prompts + win screen. Bright Blue for the
 player character (contrasts against the darker blues). Light Blue for interactable
 zone cues. Dark Blue for UI bar backgrounds / building shells. All HUD bars in Gold +
 Dark Blue for readability on the map.
 
-**"Student club" palette — MUITSA Clubroom zone:** an **original, non-official** colour
-choice (MUITSA's own colour scheme is not public and was not used). Chosen to read
-clearly as "student society / esports club" rather than "official university".
+**"Student club" palette — MUITSA Clubroom zone:** a **purple + gold** scheme, after
+MUITSA's own club colours. **No official MUITSA hex codes are published** (searched —
+nothing reliable turned up, only an unrelated Ghanaian university using the same
+acronym), so this is an **original colour choice inspired by "purple and gold"
+branding**, NOT a verified MUITSA asset. (Fun fact: Massey's own guidelines include a
+purple feature colour "Poroporo" `#812990` — we deliberately chose different purples
+so the clubroom reads student-run, not official.)
 
-| Role | Hex |
-|------|-----|
-| Clubroom floor / background | `#23262E` (dark charcoal-navy) |
-| Club accent | `#A6D608` (lime) |
-| Club neon accent | `#9B5DE5` (violet) |
-| Club text / signage | `#F6F1E5` (cream) |
+| Role | Hex | Source |
+|------|-----|--------|
+| Clubroom floor / background | `#4A148C` (deep purple) | original pick |
+| Club walls | `#7C3AED` (bright violet) | original pick |
+| Club gold accent / signage | `#F5B300` (warm gold, brighter than Massey Gold) | original pick |
+| Club text / light accents | `#FFEFD6` (cream) | original pick |
 
-The lime + violet + dark-grey combo contrasts hard against every Massey blue so the
-clubroom reads as a separate, grungier, student-run space at a glance.
+The bright-violet + gold combo contrasts hard against every Massey blue so the
+clubroom reads as a separate, energetic, student-run space at a glance.
 
 ## Art / audio (placeholders — explicitly to be swapped before submission)
 - Player = a bright-blue rounded square/`CharacterBody2D`; zones = flat colour `Area2D`
