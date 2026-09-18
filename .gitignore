@@ -1,0 +1,16 @@
+# Godot 4 cache and generated files
+.godot/
+
+# Export output
+builds/
+exported/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editor temp files
+*.tmp
+
+# Logs
+*.log
