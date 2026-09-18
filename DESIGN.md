@@ -119,13 +119,16 @@ degrees still differ in flavour text + ending blurb.
 1. `main_menu.tscn` — title, "Start Semester", controls, best-grade memory (optional)
 2. `degree_select.tscn` — pick CS / SE / Vet / Food Science (shared core, per-degree flavour)
 3. `campus.tscn` — top-down hub + HUD (Energy / Stress / GPA bars, day counter, slot dots)
-4. `pop_quiz.tscn` — MCQ minigame overlay (full scene swap for simplicity)
+4. `quiz.tscn` — shared MCQ minigame engine (used for pop quizzes, the degree quiz events,
+   the MUITSA Quiz Night, AND the finals boss exam — one engine, several skins)
 5. `rush_to_class.tscn` — dodge-minigame scene
-6. `essay_sprint.tscn` — "finish assignment" reaction minigame
-7. `exam.tscn` — finals boss
-8. `win.tscn` — Graduation: confetti, joke speech, Play Again
-9. `lose.tscn` — "Dropped Out" with reason + Retry
-10. (optional) `clubroom` scene area — built into campus.tscn as a zone, not separate
+6. `essay_sprint.tscn` — timed-tap reaction minigame (assignments, SE stand-up, Food pavlova)
+7. `win.tscn` — Graduation: confetti, joke speech, Play Again
+8. `lose.tscn` — "Dropped Out" with reason + Retry
+9. (optional) `clubroom` scene area — built into campus.tscn as a zone, not separate
+
+Tests: `tests/sim_test.tscn` (balance runs) and `tests/flow_test.tscn` (scene-flow logic) —
+both run headless via `godot --headless res://tests/<file>.tscn --quit-after 20`.
 
 ## Controls
 - **WASD / arrows** move, **E / Space** interact, **Esc** pause/menu

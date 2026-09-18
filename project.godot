@@ -11,6 +11,10 @@ config/description="A short, funny top-down game about surviving as a Massey Uni
 run/main_scene="res://scenes/main_menu.tscn"
 config/features=PackedStringArray("4.7")
 
+[autoload]
+
+GameState="*res://autoloads/game_state.gd"
+
 [display]
 
 window/size/viewport_width=1280
