@@ -67,10 +67,10 @@ func _stamp_in(node: Control) -> void:
     node.modulate.a = 0.0
     var tw := node.create_tween()
     tw.tween_interval(0.2)
-    tw.tween_property(node, "modulate:a", 1.0, 0.08)
+    tw.tween_property(node, "modulate:a", 1.0, 0.08).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
     tw.tween_interval(0.1)
     tw.tween_property(node, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-    tw.tween_property(node, "rotation", 0.0, 0.1)
+    tw.tween_property(node, "rotation", 0.0, 0.1).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
     tw.tween_callback(func() -> void: _thud())
 
 func _thud() -> void:

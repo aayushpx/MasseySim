@@ -74,8 +74,8 @@ func music(name: String) -> void:
     to.volume_db = MUSIC_DB
     to.play()
     var tw := create_tween()
-    tw.tween_property(from, "volume_db", MUSIC_DB - 30.0, CROSSFADE)
-    tw.parallel().tween_property(to, "volume_db", MUSIC_DB, CROSSFADE)
+    tw.tween_property(from, "volume_db", MUSIC_DB - 30.0, CROSSFADE).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+    tw.parallel().tween_property(to, "volume_db", MUSIC_DB, CROSSFADE).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
     tw.tween_callback(func() -> void: from.stop())
     _music_i = (1 - _music_i) % 2
     _current_music = name

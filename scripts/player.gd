@@ -172,6 +172,9 @@ func _build_animation() -> void:
 func _track_curve(a: Animation, path: String, _len: float, keys: Array) -> void:
 	var idx := a.add_track(Animation.TYPE_VALUE)
 	a.track_set_path(idx, NodePath(path))
+	# Cubic interpolation between keyframes: the bob/swing accelerates out of
+	# each extreme and eases back, instead of linear frame-stepping.
+	a.track_set_interpolation_type(idx, Animation.INTERPOLATION_CUBIC)
 	var i := 0
 	while i < keys.size() - 1:
 		a.track_insert_key(idx, keys[i], keys[i + 1])

@@ -521,7 +521,7 @@ func _apply_slot_tint(col: Color) -> void:
     if _tint_tween and _tint_tween.is_valid():
         _tint_tween.kill()
     _tint_tween = mod.create_tween()
-    _tint_tween.tween_property(mod, "color", col, TINT_TWEEN)
+    _tint_tween.tween_property(mod, "color", col, TINT_TWEEN).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 # --- Interaction ---------------------------------------------------------
 func _open_popup(zone: String) -> void:
@@ -569,7 +569,7 @@ func _popup_enter_tween(p: Control) -> void:
     p.scale = Vector2(0.92, 0.92)
     var tw := p.create_tween()
     tw.set_parallel(true)
-    tw.tween_property(p, "modulate:a", 1.0, 0.18)
+    tw.tween_property(p, "modulate:a", 1.0, 0.18).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
     tw.tween_property(p, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func _choose_option(zone: String, opt_id: String) -> void:
@@ -584,7 +584,7 @@ func _choose_option(zone: String, opt_id: String) -> void:
 
 func _fade_out_then(scene_path: String) -> void:
     var tw := create_tween()
-    tw.tween_property(wipe, "modulate:a", 1.0, 0.22)
+    tw.tween_property(wipe, "modulate:a", 1.0, 0.22).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
     tw.tween_callback(func() -> void: get_tree().change_scene_to_file(scene_path))
 
 func _maybe_leave() -> void:
@@ -613,7 +613,7 @@ func _refresh_hud() -> void:
         var target: float = GameState[key]
         if absf(target - cur) > 0.01:
             var tw := create_tween()
-            tw.tween_method(row.set_value, cur, target, 0.35)
+            tw.tween_method(row.set_value, cur, target, 0.35).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
         _meter_feedback(key, target - _prev_meters[key], row)
 
     # Toast logic (unchanged rules).
@@ -682,8 +682,8 @@ func _day_wipe(day: int) -> void:
     Fx.shake(cam, 5.0, 0.35)
     AudioFx.sfx("tick")
     var tw := create_tween()
-    tw.tween_property(wipe_lbl, "modulate:a", 0.0, 0.8).set_delay(0.55)
-    tw.parallel().tween_property(wipe, "modulate:a", 0.0, 0.8).set_delay(0.55)
+    tw.tween_property(wipe_lbl, "modulate:a", 0.0, 0.8).set_delay(0.55).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+    tw.parallel().tween_property(wipe, "modulate:a", 0.0, 0.8).set_delay(0.55).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
     tw.tween_callback(func() -> void: wipe_lbl.text = "")
 
 func _on_menu() -> void:

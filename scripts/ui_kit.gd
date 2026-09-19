@@ -103,7 +103,7 @@ static func fade_in(parent: Node) -> void:
 	layer.add_child(cover)
 	parent.add_child(layer)
 	var tw := cover.create_tween()
-	tw.tween_property(cover, "modulate:a", 0.0, 0.35)
+	tw.tween_property(cover, "modulate:a", 0.0, 0.35).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	tw.tween_callback(layer.queue_free)
 
 ## Pop-in scale+tween for titles and stamps.
@@ -114,7 +114,7 @@ static func pop_in(node: Control, delay: float = 0.0) -> void:
 	var tw := node.create_tween()
 	tw.tween_interval(delay)
 	tw.set_parallel(true)
-	tw.tween_property(node, "modulate:a", 1.0, 0.25)
+	tw.tween_property(node, "modulate:a", 1.0, 0.25).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	tw.tween_property(node, "scale", Vector2.ONE, 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 ## Full-screen flash on a high layer (red for hits, white for goals).
@@ -129,7 +129,7 @@ static func flash(parent: Node, col: Color, strength: float = 0.4) -> void:
 	layer.add_child(rect)
 	parent.add_child(layer)
 	var tw := rect.create_tween()
-	tw.tween_property(rect, "modulate:a", 0.0, 0.30)
+	tw.tween_property(rect, "modulate:a", 0.0, 0.30).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	tw.tween_callback(layer.queue_free)
 
 ## Fade to ink, then switch scenes. Optional hook fires at fade start
@@ -148,7 +148,7 @@ static func fade_and_switch(parent: Node, scene_path: String, hook: Callable = C
 	layer.add_child(rect)
 	parent.add_child(layer)
 	var tw := rect.create_tween()
-	tw.tween_property(rect, "modulate:a", 1.0, 0.22)
+	tw.tween_property(rect, "modulate:a", 1.0, 0.22).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 	tw.tween_callback(func() -> void: tree.change_scene_to_file(scene_path))
 
 ## Small particle burst at a screen-space point (world or UI layer).

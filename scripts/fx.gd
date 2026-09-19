@@ -10,4 +10,4 @@ static func shake(cam: Camera2D, amp: float = 6.0, dur: float = 0.3) -> void:
     for i in steps:
         var a: float = amp * (1.0 - float(i) / float(steps))
         tw.tween_property(cam, "offset", Vector2(randf_range(-a, a), randf_range(-a, a)), dur / float(steps))
-    tw.tween_property(cam, "offset", Vector2.ZERO, 0.06)
+    tw.tween_property(cam, "offset", Vector2.ZERO, 0.06).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
