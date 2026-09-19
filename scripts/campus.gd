@@ -206,6 +206,9 @@ func _make_sign(key: String, label: String) -> Node2D:
     lbl.add_theme_font_override("font", CampusDecor.display_font(700))
     lbl.add_theme_font_size_override("font_size", 21)
     lbl.add_theme_color_override("font_color", Palette.GOLD if _is_club(key) else Palette.PAPER)
+    lbl.add_theme_constant_override("outline_size", 3)
+    lbl.add_theme_color_override("font_outline_color", Palette.INK)
+    lbl.z_index = 4
     holder.add_child(lbl)
     return holder
 

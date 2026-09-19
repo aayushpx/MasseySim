@@ -39,14 +39,16 @@ static func group(nodes: Array) -> Node2D:
 static func _rrect(w: float, h: float, r: float, col: Color, pos: Vector2 = Vector2.ZERO, z: int = 0) -> Polygon2D:
 	return Props.poly(Props.rounded_rect(w, h, r, 4), col, pos, z)
 
-static func _text(text: String, pos: Vector2, size: int, col: Color, display: bool = false, weight: int = 600) -> Label:
+static func _text(text: String, pos: Vector2, size: int, col: Color, display: bool = false, weight: int = 600, z: int = 0) -> Label:
 	var lbl := Label.new()
 	lbl.text = text
 	lbl.position = pos
+	lbl.z_index = z
 	lbl.add_theme_font_override("font", display_font(weight) if display else body_font(weight))
 	lbl.add_theme_font_size_override("font_size", size)
 	lbl.add_theme_color_override("font_color", col)
-	lbl.add_theme_constant_override("outline_size", 0)
+	lbl.add_theme_constant_override("outline_size", maxi(2, int(round(size * 0.15))))
+	lbl.add_theme_color_override("font_outline_color", Palette.INK)
 	return lbl
 
 # --- Zones -----------------------------------------------------------------
@@ -305,8 +307,8 @@ static func banner(pos: Vector2, bw: float, bh: float) -> Node2D:
 	out.append(_rrect(bw - 18, bh - 16, 3, Palette.PURPLE, pos, 2))
 	for i in 9:
 		out.append(_rrect(3, 14, 1.5, Palette.MU_GOLD, pos + Vector2(-bw * 0.5 + 14 + i * 18, bh * 0.5 + 5), 1))
-	out.append(_text("MUITSA", pos + Vector2(-bw * 0.5 + 16, -bh * 0.5 + 8), 30, Palette.MU_CREAM, true, 800))
-	out.append(_text("GAME NIGHT EVERY FRIDAY", pos + Vector2(-bw * 0.5 + 16, -bh * 0.5 + 46), 12, Palette.MU_GOLD, false, 700))
+	out.append(_text("MUITSA", pos + Vector2(-bw * 0.5 + 16, -bh * 0.5 + 8), 30, Palette.MU_CREAM, true, 800, 3))
+	out.append(_text("GAME NIGHT EVERY FRIDAY", pos + Vector2(-bw * 0.5 + 16, -bh * 0.5 + 46), 12, Palette.MU_GOLD, false, 700, 3))
 	return group(out)
 
 ## Exam hall: strict rows of single desks.
