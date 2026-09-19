@@ -53,6 +53,11 @@ var current_zone := ""        # zone key the player is standing in (set by campu
 var assignments_done := {}
 var pop_quiz_used := {}
 var rush_used := false
+var muitsa_discovered := false      # MUITSA has been found (clue OR safety-net)
+var muitsa_welcome_done := false    # first clubroom visit after discovery
+var muitsa_clue_pending := false    # consumed by campus for the "found it" toast
+var muitsa_forced_pending := false  # consumed by campus for the Day-7 fallback toast
+var muitsa_welcome_pending := false
 var event_mode := {}          # details handed to the next minigame
 var last_result := {}         # keeps "this is why you won/lost" text for screens
 
@@ -92,6 +97,12 @@ func start_run(degree_name: String) -> void:
 	assignments_done = {3: false, 5: false, 6: false}
 	pop_quiz_used = {}
 	rush_used = false
+	muitsa_discovered = false
+	muitsa_welcome_done = false
+	muitsa_clue_pending = false
+	muitsa_forced_pending = false
+	muitsa_welcome_pending = false
+	ensure_muitsa_safety_net()
 	event_mode = {}
 	last_result = {}
 	emit_signal("meters_changed")
@@ -103,6 +114,57 @@ func slot_name() -> String:
 
 func slots_left() -> int:
 	return SLOTS_PER_DAY - slots_used
+
+## One-time MUITSA discovery. method "found" = the player found the clue in the
+## library; "forced" = the Day-7 safety-net fallback. Returns true first time only.
+func discover_muitsa(method: String) -> bool:
+	if muitsa_discovered:
+		return false
+	muitsa_discovered = true
+	if method == "found":
+		muitsa_clue_pending = true
+	else:
+		muitsa_forced_pending = true
+	return true
+
+## Safety net: by the start of Finals Day everyone has found the clubroom,
+## one way or another. Idempotent; safe to call any time.
+func ensure_muitsa_safety_net() -> void:
+	if not muitsa_discovered and day >= GAME_DAYS:
+		discover_muitsa("forced")
+
+## One-time "Welcome to MUITSA" beat on the first clubroom activity.
+func _maybe_welcome() -> void:
+	if muitsa_welcome_done:
+		return
+	muitsa_welcome_done = true
+	muitsa_welcome_pending = true
+
+## Purely informational "Today's Objective" guidance - never gates anything.
+func current_objective() -> String:
+	if exam_taken:
+		return "Finals done. Keep breathing - you've earned it."
+	if day == 7:
+		return "FINALS DAY. The Exam Hall is the only door left."
+	if energy <= 40.0:
+		return "Energy is low - eat or nap before you collapse."
+	if stress >= 80.0:
+		return "Stress is high - nap or chill before burnout hits."
+	if gpa < SUSPEND_GPA:
+		return "GPA under %d - suspension risk! Study now." % SUSPEND_GPA
+	if gpa < PASS_GPA:
+		return "GPA below the pass line - lecture day, stat."
+	if day in ASSIGN_DAYS and not assignments_done.get(day, false):
+		return "Assignment due today - finish it at the library."
+	if not muitsa_discovered and (day > 5 or (day == 5 and slots_used >= 2)):
+		return "There's something odd in the library... take a look around."
+	if muitsa_discovered and not muitsa_welcome_done:
+		return "The MUITSA clubroom just lit up - go check it out."
+	if day >= 5:
+		return "Finals in %d day%s - keep the study going." % [GAME_DAYS - day, "s" if GAME_DAYS - day != 1 else ""]
+	if day == 1:
+		return "Attend a lecture to find your footing."
+	return "Keep the meters green - lecture, eat, study, nap."
 
 # --- Meter maths --------------------------------------------------------
 func _add(meter: String, amount: float) -> void:
@@ -143,7 +205,10 @@ func zone_options(zone: String) -> Array:
 		"flat":
 			out.append({"id": "nap", "label": "Nap like it owes you money (+Energy)"})
 		"clubroom":
-			out.append({"id": "chill", "label": "Chill at Club Night (--Stress)"})
+			# Quiet (no options) until the MUITSA flyer is found - except the
+			# MUITSA Quiz Night on Day 6 evening, which runs either way.
+			if muitsa_discovered:
+				out.append({"id": "chill", "label": "Chill at Club Night (--Stress)"})
 			if day == 6 and slots_used == 2:
 				out.append({"id": "quiznight", "label": "MUITSA Quiz Night (+GPA, -Stress)"})
 		"exam":
@@ -190,9 +255,12 @@ func perform_option(zone: String, opt_id: String) -> String:
 					"title": "MUITSA Quiz Night - all degrees welcome",
 					"blurb": "Purple and gold, a microwave that has seen things, and a real code of conduct. It's a society.",
 				}
+				_maybe_welcome()
 				return _minigame_scene(event_mode)
-			_apply_and_finish(opt_id)
-			return ""
+			if opt_id == "chill":
+				_maybe_welcome()
+				_apply_and_finish(opt_id)
+				return ""
 		"exam":
 			if day != 7:
 				toast_message = "The exam hall is sealed until Finals Week (Day 7)."
@@ -291,6 +359,7 @@ func _advance_day() -> void:
 		toast_message = "Assignment from Day %d was late! GPA -%d" % [day, int(LATE_PENALTY)]
 	day += 1
 	if day <= GAME_DAYS:
+		ensure_muitsa_safety_net()
 		emit_signal("day_changed")
 	elif not exam_taken:
 		lost_reason = "Finals Week came and went. You never entered the exam hall. The degree left you before you left it."

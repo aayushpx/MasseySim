@@ -38,6 +38,16 @@ var cam: Camera2D
 var _last_day := -1
 var _prev_meters := {"energy": 70.0, "stress": 30.0, "gpa": 60.0}
 var _depth_zones := {}   # zone_key -> {zone, pairs: [{node, y}]}
+var _clubroom_zone: Area2D
+var _clubroom_decor: Node2D
+var _club_sign_lbl: Label
+var _club_door_knob: Polygon2D
+var _club_lit := false               # cached display state of the clubroom
+var _clue_zone: Area2D               # library hotspot the clue lives in
+var _clue_in_range := false
+var _clue_sparkle_t := 0.0
+var objective_panel: PanelContainer
+var objective_lbl: Label
 
 func _ready() -> void:
     _build_ground()
@@ -45,6 +55,7 @@ func _ready() -> void:
     _build_zones()
     _build_hud()
     _setup_camera()
+    _club_lit = GameState.muitsa_discovered
     AudioFx.music("campus")
 
     GameState.meters_changed.connect(_refresh_hud)
@@ -57,8 +68,15 @@ func _process(_delta: float) -> void:
         _apply_slot_tint(Palette.TINT_MORNING)
         return
     _update_depth()
+    _tick_clue_sparkle(_delta)
     if current_zone != "" and not popup.visible:
         var zone_name: String = ZONE_DEFS[current_zone]["label"]
+        # The MUITSA clue in the library takes priority over zone options.
+        if _clue_ready():
+            prompt_chip.text = "Press E  -  Investigate the loose note"
+            if Input.is_action_just_pressed("interact"):
+                _take_clue()
+            return
         var opts: Array = GameState.zone_options(current_zone)
         if opts.is_empty():
             prompt_chip.text = ""
@@ -172,6 +190,13 @@ func _build_zones() -> void:
             zone.add_child(StageLights.classroom(w, h))
             _depth_zones[key] = {"zone": zone, "pairs": decor.get_meta("depth_pairs", [])}
 
+        if key == "clubroom":
+            _clubroom_zone = zone
+            _clubroom_decor = decor
+
+        if key == "library":
+            _build_clue(zone, w, h)
+
         # Sign chip above the door line.
         zone.add_child(_make_sign(key, def["label"]))
         zone.add_child(_make_door(key, w, h))
@@ -187,6 +212,66 @@ func _on_zone_exited(_body: Node2D, key: String) -> void:
     if current_zone == key:
         current_zone = ""
 
+# --- MUITSA clue (library) -------------------------------------------------
+# The discovery object: a loose note tucked in the right bookshelf. It has its
+# own hotspot + a glow so it reads as "findable" - but discovery only happens
+# when the player actually walks up and presses E.
+
+func _build_clue(zone: Area2D, w: float, h: float) -> void:
+    var hs := Area2D.new()
+    hs.name = "Clue"
+    hs.position = Vector2(w * 0.5 - 52, -4)
+    zone.add_child(hs)
+    var shape := CollisionShape2D.new()
+    var circ := CircleShape2D.new()
+    circ.radius = 46.0
+    shape.shape = circ
+    hs.add_child(shape)
+    var note := Props.poly(Props.rounded_rect(16, 22, 3), Palette.PAPER, Vector2(14, 0), 4)
+    hs.add_child(note)
+    var peg := Props.poly(Props.rounded_rect(3, 6, 1), Palette.DARK, Vector2(21, 2), 5)
+    hs.add_child(peg)
+    var tab := Props.poly(Props.rounded_rect(8, 6, 2), Palette.GOLD, Vector2(9, -8), 5)
+    hs.add_child(tab)
+    var star := Props.poly(Props.ellipse(3, 3, 8), Palette.MU_GOLD, Vector2(8, 16), 6)
+    hs.add_child(star)
+    hs.body_entered.connect(_on_clue_entered)
+    hs.body_exited.connect(_on_clue_exited)
+    _clue_zone = hs
+
+func _clue_ready() -> bool:
+    return _clue_in_range and _clue_zone != null and is_instance_valid(_clue_zone) \
+        and not GameState.muitsa_discovered
+
+func _on_clue_entered(body: Node2D) -> void:
+    if body == player:
+        _clue_in_range = true
+
+func _on_clue_exited(body: Node2D) -> void:
+    if body == player:
+        _clue_in_range = false
+
+## Small periodic glint so the tucked-in note catches the eye.
+func _tick_clue_sparkle(delta: float) -> void:
+    if not _clue_ready() or current_zone != "library":
+        return
+    _clue_sparkle_t += delta
+    if _clue_sparkle_t >= 0.55:
+        _clue_sparkle_t = 0.0
+        _burst(_clue_zone.global_position + Vector2(8, 0), Palette.MU_GOLD, 5)
+
+func _take_clue() -> void:
+    AudioFx.sfx("confirm")
+    if GameState.discover_muitsa("found"):
+        _refresh_clubroom()
+        _burst(_clue_zone.global_position + Vector2(8, 0), Palette.MU_GOLD, 14)
+    if _clue_zone != null and is_instance_valid(_clue_zone):
+        _clue_zone.queue_free()
+    _clue_zone = null
+    _clue_in_range = false
+    prompt_chip.text = ""
+    _refresh_hud()
+
 func _make_sign(key: String, label: String) -> Node2D:
     var holder := Node2D.new()
     holder.position = Vector2(0, -190)
@@ -198,33 +283,92 @@ func _make_sign(key: String, label: String) -> Node2D:
     stroke.modulate.a = 0.9
     holder.add_child(stroke)
     var lbl := Label.new()
-    lbl.text = label
+    var club: bool = _is_club(key)
+    var lit: bool = club and GameState.muitsa_discovered
+    lbl.text = "MUITSA Clubroom" if lit else ("LOCKED" if club else label)
     lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     lbl.position = Vector2(-180, -20)
     lbl.size = Vector2(360, 40)
     lbl.add_theme_font_override("font", CampusDecor.display_font(700))
     lbl.add_theme_font_size_override("font_size", 21)
-    lbl.add_theme_color_override("font_color", Palette.GOLD if _is_club(key) else Palette.PAPER)
+    lbl.add_theme_color_override("font_color", Palette.GOLD if lit else (Palette.FOG if club else Palette.PAPER))
     lbl.add_theme_constant_override("outline_size", 3)
     lbl.add_theme_color_override("font_outline_color", Palette.INK)
     lbl.z_index = 4
     holder.add_child(lbl)
+    if key == "clubroom":
+        _club_sign_lbl = lbl
     return holder
 
 func _make_door(key: String, w: float, h: float) -> Node2D:
     var holder := Node2D.new()
     holder.position = Vector2(0, -h * 0.5 + 12)
-    var col := Palette.GOLD if _is_club(key) else Palette.PAPER
+    var lit := _is_club(key) and GameState.muitsa_discovered
+    var col := Palette.GOLD if lit else Palette.PAPER
     var door := Props.poly(Props.rounded_rect(54, 16, 6), Color(1.0, 1.0, 1.0, 0.10))
     door.color = Color(1, 1, 1, 0.12)
     holder.add_child(door)
     var knob := Props.poly(Props.ellipse(4, 4, 10), col, Vector2(16, 0), 1)
     holder.add_child(knob)
+    # The sealed clubroom wears a padlock instead of a lit knob.
+    if _is_club(key) and not lit:
+        var shackle := Props.poly(Props.ellipse(9, 5, 10), Palette.FOG, Vector2(-18, -5), 2)
+        holder.add_child(shackle)
+        var pin := Props.poly(Props.rounded_rect(14, 10, 2), Palette.FOG, Vector2(-18, 1), 3)
+        holder.add_child(pin)
+        var keyhole := Props.poly(Props.rounded_rect(3, 5, 1), Palette.INK, Vector2(-18, 2), 4)
+        holder.add_child(keyhole)
+    if key == "clubroom":
+        _club_door_knob = knob
     return holder
 
 func _is_club(key: String) -> bool:
     return key == "clubroom"
+
+## Clubroom dressing: a near-black void until MUITSA is discovered, then it
+## lights up with the banner and activity.
+func _clubroom_dressing(w: float, h: float) -> Node2D:
+    if GameState.muitsa_discovered:
+        return CampusDecor.group([
+            CampusDecor.banner(Vector2(0, -70), 260, 86),
+            CampusDecor.reading_table(Vector2(-110, 70), 80),
+            CampusDecor.reading_table(Vector2(110, 70), 80),
+            CampusDecor.plant(Vector2(-w * 0.5 + 32, -h * 0.5 + 30)),
+            CampusDecor.plant(Vector2(w * 0.5 - 32, -h * 0.5 + 30)),
+        ])
+    return _locked_void(w, h)
+
+## Locked state: a full-zone near-black void with only dim silhouettes of the
+## furniture behind it and a faint pinprick of gold - something is in there.
+func _locked_void(w: float, h: float) -> Node2D:
+    var out: Array = []
+    out.append(Props.poly(Props.rounded_rect(w, h, 14), Color(0.016, 0.02, 0.03, 0.95), Vector2.ZERO, 2))
+    var sil := Color(0.085, 0.11, 0.16, 1.0)
+    out.append(Props.poly(Props.rounded_rect(260, 86, 4), sil, Vector2(0, -70), 3))
+    out.append(Props.poly(Props.rounded_rect(80, 72, 8), sil, Vector2(-110, 70), 3))
+    out.append(Props.poly(Props.rounded_rect(80, 72, 8), sil, Vector2(110, 70), 3))
+    out.append(Props.poly(Props.rounded_rect(56, 10, 3), Color(0.16, 0.2, 0.26, 0.85), Vector2(0, -70), 3))
+    return CampusDecor.group(out)
+
+## Discovery happened: swap the clubroom to its lit state in place.
+func _refresh_clubroom() -> void:
+    if _clubroom_zone == null:
+        return
+    if is_instance_valid(_clubroom_decor):
+        _clubroom_zone.remove_child(_clubroom_decor)
+        _clubroom_decor.queue_free()
+    var w: float = ZONE_DEFS["clubroom"]["size"].x
+    var h: float = ZONE_DEFS["clubroom"]["size"].y
+    _clubroom_decor = _zone_decor("clubroom", w, h)
+    if _clubroom_decor != null:
+        _clubroom_zone.add_child(_clubroom_decor)
+    if _club_sign_lbl != null:
+        _club_sign_lbl.text = "MUITSA Clubroom"
+        _club_sign_lbl.add_theme_color_override("font_color", Palette.GOLD)
+    if _club_door_knob != null:
+        _club_door_knob.color = Palette.GOLD
+    _club_lit = GameState.muitsa_discovered
 
 func _zone_decor(key: String, w: float, h: float) -> Node2D:
     match key:
@@ -259,13 +403,7 @@ func _zone_decor(key: String, w: float, h: float) -> Node2D:
             out.append(CampusDecor._text("FLAT BULLETIN: NAP, EAT, REPEAT.", Vector2(w * 0.5 - 185, -h * 0.5 + 30), 10, Palette.FOG, false, 600))
             return CampusDecor.group(out)
         "clubroom":
-            var out: Array = []
-            out.append(CampusDecor.banner(Vector2(0, -70), 260, 86))
-            out.append(CampusDecor.reading_table(Vector2(-110, 70), 80))
-            out.append(CampusDecor.reading_table(Vector2(110, 70), 80))
-            out.append(CampusDecor.plant(Vector2(-w * 0.5 + 32, -h * 0.5 + 30)))
-            out.append(CampusDecor.plant(Vector2(w * 0.5 - 32, -h * 0.5 + 30)))
-            return CampusDecor.group(out)
+            return _clubroom_dressing(w, h)
         "exam":
             var out: Array = []
             out.append(CampusDecor.exam_rows(Vector2(0, -30), w, 6))
@@ -358,6 +496,35 @@ func _build_hud() -> void:
     toast_chip.font_size = 18
     toast_chip.text_color = Palette.PAPER
     ui.add_child(toast_chip)
+
+    # --- Today's Objective (informational guidance chip).
+    objective_panel = PanelContainer.new()
+    objective_panel.anchor_left = 0.5
+    objective_panel.anchor_right = 0.5
+    objective_panel.anchor_top = 0.0
+    objective_panel.anchor_bottom = 0.0
+    objective_panel.offset_left = -280
+    objective_panel.offset_right = 280
+    objective_panel.offset_top = 130
+    objective_panel.offset_bottom = 198
+    objective_panel.add_theme_stylebox_override("panel", _panel_style())
+    ui.add_child(objective_panel)
+    var obj_box := VBoxContainer.new()
+    obj_box.add_theme_constant_override("separation", 2)
+    objective_panel.add_child(obj_box)
+    var obj_title := Label.new()
+    obj_title.text = "TODAY'S OBJECTIVE"
+    obj_title.add_theme_font_override("font", CampusDecor.display_font(700))
+    obj_title.add_theme_font_size_override("font_size", 11)
+    obj_title.add_theme_color_override("font_color", Palette.GOLD)
+    obj_box.add_child(obj_title)
+    objective_lbl = Label.new()
+    objective_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    objective_lbl.custom_minimum_size = Vector2(524, 0)
+    objective_lbl.add_theme_font_override("font", CampusDecor.body_font(500))
+    objective_lbl.add_theme_font_size_override("font_size", 13)
+    objective_lbl.add_theme_color_override("font_color", Palette.PAPER)
+    obj_box.add_child(objective_lbl)
 
     # --- Action popup.
     popup = PanelContainer.new()
@@ -606,8 +773,25 @@ func _refresh_hud() -> void:
             tw.tween_method(row.set_value, cur, target, 0.35).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
         _meter_feedback(key, target - _prev_meters[key], row)
 
-    # Toast logic (unchanged rules).
-    if GameState.day in GameState.ASSIGN_DAYS and not GameState.assignments_done.get(GameState.day, false):
+    # Catch the clubroom reveal (either discovery path) and put it on the map.
+    if GameState.muitsa_discovered != _club_lit:
+        _refresh_clubroom()
+        if _clue_zone != null and is_instance_valid(_clue_zone):
+            _clue_zone.queue_free()
+        _clue_zone = null
+        _clue_in_range = false
+
+    # Toast logic: one-time discovery beats take priority over the daily rules.
+    if GameState.muitsa_clue_pending:
+        GameState.muitsa_clue_pending = false
+        toast_chip.text = "You find a purple flyer pinned in The Spiral: 'MUITSA WANTS YOU.' The clubroom just lit up."
+    elif GameState.muitsa_forced_pending:
+        GameState.muitsa_forced_pending = false
+        toast_chip.text = "A flyer falls out of a book as you rush past: 'MUITSA WANTS YOU.' The clubroom just lit up."
+    elif GameState.muitsa_welcome_pending:
+        GameState.muitsa_welcome_pending = false
+        toast_chip.text = "Welcome to MUITSA! The toaster stays. NOBODY touches the toaster."
+    elif GameState.day in GameState.ASSIGN_DAYS and not GameState.assignments_done.get(GameState.day, false):
         toast_chip.text = "Today: an assignment is DUE at the library!"
     elif GameState.day == 7 and not GameState.exam_taken:
         toast_chip.text = "FINALS DAY. Get to the Exam Hall!"
@@ -615,6 +799,10 @@ func _refresh_hud() -> void:
         toast_chip.text = GameState.toast_message
     else:
         toast_chip.text = ""
+
+    # Objective panel: pure guidance, always derived from live GameState values.
+    if objective_lbl != null:
+        objective_lbl.text = GameState.current_objective()
 
     if d != _last_day:
         _last_day = d
