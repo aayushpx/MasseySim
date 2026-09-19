@@ -56,54 +56,81 @@ static func _text(text: String, pos: Vector2, size: int, col: Color, display: bo
 static func soft_shadow(sx: float, sy: float, pos: Vector2, alpha: float = 0.26) -> Polygon2D:
 	return Props.poly(Props.ellipse(sx, sy, 16), Color(0.0, 0.0, 0.0, alpha), pos, 0)
 
-## Lecture hall dressing. plate = floor rect (w,h centred on origin).
+## Lecture hall dressing.
+## Composition logic:
+##  - FOCAL: the board + podium sit front-center; every prop faces that wall.
+##  - BODY: two desk BANKS (2 rows x 2 cols) flank a clear center AISLE that
+##    runs straight up to the board; outer margins stay open as walkways so the
+##    space reads as "approaching the front", never edge-to-edge clutter.
+##  - CLUSTERS: back corners group related pieces - a READING NOOK (shelf +
+##    armchair + lamp + side table) and a LOUNGE (two facing chairs + table),
+##    instead of chairs and lamps scattered around the walls.
+##  -BREATHING: front band, center aisle, side lanes and the back walkway are
+##    intentionally empty for the player to move through.
 static func lecture_hall(w: float, h: float) -> Node2D:
 	var out: Array = []
 	var depth: Array = []
 
-	# Drop shadows, painted before every prop so furniture sits in them.
-	for r in 3:
-		out.append(soft_shadow(w * 0.5 - 30, 7, Vector2(0, -h * 0.5 + 138 + r * 44), 0.20))
-	var shelf_l := bookshelf(Vector2(-w * 0.5 + 34, 0), 58, 150, 3)
-	var shelf_r := bookshelf(Vector2(w * 0.5 - 34, 0), 58, 150, 3)
-	var plant_tl := plant(Vector2(-w * 0.5 + 22, -h * 0.5 + 110))
-	var plant_tr := plant(Vector2(w * 0.5 - 22, -h * 0.5 + 110))
-	out.append(soft_shadow(34, 12, Vector2(-w * 0.5 + 34, 78), 0.28))
-	out.append(soft_shadow(34, 12, Vector2(w * 0.5 - 34, 78), 0.28))
-	out.append(soft_shadow(13, 7, Vector2(-w * 0.5 + 24, -h * 0.5 + 116)))
-	out.append(soft_shadow(13, 7, Vector2(w * 0.5 - 24, -h * 0.5 + 116)))
-
+	# --- FOCAL: board wall (front-center). ---
 	var plinth := _rrect(w - 40, 34, 6, Palette.INK, Vector2(0, -h * 0.5 + 60))
-	var board := _rrect(150, 84, 4, Palette.PAPER, Vector2(0, -h * 0.5 + 34), 2)
+	var board := _rrect(120, 84, 4, Palette.PAPER, Vector2(0, -h * 0.5 + 34), 2)
 	out.append(plinth)
 	out.append(board)
-	out.append(_rrect(150 + 8, 4, 1.5, Palette.INK, Vector2(0, -h * 0.5 + 77), 3))
-	out.append(_rrect(110, 22, 3, Palette.LIGHT, Vector2(0, -h * 0.5 + 33), 3))
-	out.append(_rrect(34, 24, 4, Palette.GOLD, Vector2(-54, -h * 0.5 + 78), 3))
-	out.append(_rrect(28, 30, 3, Palette.INK, Vector2(-54, -h * 0.5 + 96), 2))
-	out.append(_text("FINALS IN SESSION? NO PRESSURE.", Vector2(-146, -h * 0.5 + 2), 12, Palette.FOG, false, 600))
+	out.append(_rrect(128, 4, 1.5, Palette.INK, Vector2(0, -h * 0.5 + 77), 3))
+	out.append(_rrect(88, 22, 3, Palette.LIGHT, Vector2(0, -h * 0.5 + 33), 3))
+	out.append(_rrect(40, 24, 4, Palette.GOLD, Vector2(-44, -h * 0.5 + 80), 3))
+	out.append(_rrect(30, 26, 3, Palette.INK, Vector2(-44, -h * 0.5 + 96), 2))
+	out.append(_text("FINALS IN SESSION? NO PRESSURE.", Vector2(-120, -h * 0.5 - 6), 12, Palette.FOG, false, 600))
 	for i in 3:
-		out.append(_rrect(54, 9, 3, Palette.GOLD, Vector2(-84 + i * 84, -h * 0.5 + 49), 4))
+		out.append(_rrect(40, 8, 3, Palette.GOLD, Vector2(-40 + i * 40, -h * 0.5 + 49), 4))
 
-	for r in 3:
-		var y: float = -h * 0.5 + 128 + r * 44
-		for s in 5:
-			var x: float = -w * 0.5 + 36 + 40 + s * 68
+	# --- BODY: two desk banks facing the board, centre aisle clear. ---
+	# Left bank x: -126 / -50, right bank x: 50 / 126; rows at front y=-h/2+134 and -h/2+178.
+	var bank_x := [-126.0, -50.0, 50.0, 126.0]
+	for row_xs in 2:
+		var y: float = -h * 0.5 + 134 + row_xs * 44
+		for s in 4:
+			var x: float = bank_x[s]
+			out.append(soft_shadow(34, 7, Vector2(x, y), 0.18))
 			out.append(_rrect(58, 20, 3, Palette.LIGHT, Vector2(x, y), 2))
 			out.append(_rrect(58, 3, 1.5, Palette.INK, Vector2(x, y - 10), 3))
 			out.append(_rrect(20, 20, 6, Palette.BRIGHT, Vector2(x, y + 12), 2))
 
-	out.append(shelf_l)
-	out.append(shelf_r)
+	# Front-corner plants frame the focal board.
+	var plant_tl := plant(Vector2(-w * 0.5 + 22, -h * 0.5 + 110))
+	var plant_tr := plant(Vector2(w * 0.5 - 22, -h * 0.5 + 110))
+	out.append(soft_shadow(13, 7, Vector2(-w * 0.5 + 24, -h * 0.5 + 116)))
+	out.append(soft_shadow(13, 7, Vector2(w * 0.5 - 24, -h * 0.5 + 116)))
 	out.append(plant_tl)
 	out.append(plant_tr)
+
+	# --- CLUSTER 1: reading nook (back-left). Shelf on the back wall, chair in
+	#     front of it, pool lamp + side table close at hand. One obvious zone.
+	var nook_shelf := bookshelf(Vector2(-126, 92), 58, 120, 4)
+	out.append(nook_shelf)
+	out.append(rug(Vector2(-94, 116)))
+	out.append(armchair(Vector2(-90, 112), 0.9))
+	out.append(side_table(Vector2(-52, 122)))
+	out.append(floor_lamp(Vector2(-138, 130)))
+
+	# --- CLUSTER 2: lounge (back-right). Two chairs reading at each other with
+	#     a table between - a conversational group, not two lonely chairs.
+	out.append(rug(Vector2(118, 116)))
+	out.append(armchair(Vector2(84, 112), -0.6))
+	out.append(armchair(Vector2(152, 112), 2.6))
+	out.append(side_table(Vector2(118, 134)))
+
+	# A classmate seated at the back-left inner desk (reads as a peer, grounds
+	# the room as "in session").
+	out.append(Props.poly(Props.ellipse(11, 9, 14), Palette.INK, Vector2(-50, 40), 5))
+	out.append(soft_shadow(12, 6, Vector2(-50, 52), 0.20))
+
 	out.append(classroom_life(w, h))
 
 	# Tall props the player can step behind: (node, front-edge_y in zone coords).
 	depth.append({"node": plinth, "y": -h * 0.5 + 77})
 	depth.append({"node": board, "y": -h * 0.5 + 76})
-	depth.append({"node": shelf_l, "y": 75})
-	depth.append({"node": shelf_r, "y": 75})
+	depth.append({"node": nook_shelf, "y": 92})
 	depth.append({"node": plant_tl, "y": -h * 0.5 + 115})
 	depth.append({"node": plant_tr, "y": -h * 0.5 + 115})
 	var n := group(out)
@@ -111,14 +138,51 @@ static func lecture_hall(w: float, h: float) -> Node2D:
 	n.set_meta("depth_pairs", depth)
 	return n
 
-## Ambient life for the lecture hall: clock, dust motes, a plant, a silhouette.
-static func classroom_life(w: float, h: float) -> Node2D:
-	var life := Node2D.new()
+## Round rug - grounds a seating cluster on the floor plate.
+static func rug(pos: Vector2) -> Node2D:
+	var r := Props.poly(Props.ellipse(46, 34, 16), Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.35), Vector2.ZERO, 0)
+	var n := group([r])
+	n.position = pos
+	return n
+
+## Top-down armchair. `aim` = radians the seat faces (0 faces down-screen).
+static func armchair(pos: Vector2, aim: float) -> Node2D:
+	var back := _rrect(26, 9, 3, Palette.INK, Vector2(0, -10))
+	var seat := Props.poly(Props.rounded_rect(26, 22, 7, 8), Palette.LIGHT, Vector2.ZERO, 1)
+	var cushion := Props.poly(Props.rounded_rect(18, 15, 6, 8), Palette.SUNK, Vector2.ZERO, 2)
+	var side_l := _rrect(5, 22, 2, Palette.BLUE, Vector2(-11, 1))
+	var side_r := _rrect(5, 22, 2, Palette.BLUE, Vector2(11, 1))
+	var n := group([back, seat, cushion, side_l, side_r])
+	n.rotation = aim
+	n.position = pos
+	return n
+
+## Small side / coffee table for seating clusters.
+static func side_table(pos: Vector2) -> Node2D:
+	var n := group([_rrect(18, 18, 5, Palette.LIGHT, Vector2.ZERO), _rrect(14, 14, 4, Palette.PAPER, Vector2.ZERO, 1)])
+	n.position = pos
+	return n
+
+## Standing floor lamp: lamp pool on the floor, thin stem, warm bulb.
+static func floor_lamp(pos: Vector2) -> Node2D:
+	var pool := Props.poly(Props.ellipse(30, 22, 14), Color(1.0, 0.86, 0.62, 0.14), Vector2(0, 8), 0)
+	var base := _rrect(12, 12, 4, Palette.INK, Vector2(0, 6))
+	var stem := Props.poly(Props.bar(2, 22), Palette.SUNK, Vector2(0, -2), 2)
+	var bulb := Props.poly(Props.ellipse(5, 5, 10), Palette.GOLD, Vector2(0, -14), 3)
+	var n := group([pool, base, stem, bulb])
+	n.position = pos
+	return n
+
+## Ambient life for the lecture hall: a ticking clock and drifting dust motes.
+## Motion is eased (sin-drift and a smoothed per-second hand) so it reads
+## organic rather than robotic constant-speed.
+static func classroom_life(w: float, h: float) -> Life:
+	var life := Life.new()
 	life.name = "Life"
 
 	var clock := Node2D.new()
 	clock.name = "Clock"
-	clock.position = Vector2(w * 0.5 - 50, -h * 0.5 + 44)
+	clock.position = Vector2(w * 0.5 - 74, -h * 0.5 + 26)
 	life.add_child(clock)
 	clock.add_child(Props.poly(Props.ellipse(16, 16, 18), Palette.INK, Vector2.ZERO, 2))
 	clock.add_child(Props.poly(Props.ellipse(14, 14, 18), Palette.PAPER, Vector2.ZERO, 3))
@@ -131,6 +195,7 @@ static func classroom_life(w: float, h: float) -> Node2D:
 	var second := Props.poly(Props.bar(1.2, 12.0), Palette.GOLD, Vector2(0, -4), 6)
 	second.name = "Second"
 	clock.add_child(second)
+	life.second = second
 
 	var dust := Node2D.new()
 	dust.name = "Dust"
@@ -138,22 +203,35 @@ static func classroom_life(w: float, h: float) -> Node2D:
 	for i in 3:
 		var mote := Node2D.new()
 		mote.name = "Mote%d" % i
-		mote.position = Vector2(-50 + i * 30, -h * 0.5 + 22 + i)
+		var base_x: float = -50 + i * 30
+		var base_y: float = -h * 0.5 + 22 + i
+		mote.position = Vector2(base_x, base_y)
 		var dot := Props.poly(Props.ellipse(2.2, 2.2, 5), Palette.PAPER, Vector2.ZERO, 8)
 		dot.modulate.a = 0.5
 		mote.add_child(dot)
 		dust.add_child(mote)
-
-	var pot := plant(Vector2(-w * 0.5 + 22, -h * 0.5 + 110))
-	pot.name = "Plant"
-	life.add_child(pot)
-
-	var npc := Node2D.new()
-	npc.name = "Student"
-	npc.position = Vector2(-64, -h * 0.5 + 118)
-	npc.add_child(Props.poly(Props.ellipse(12, 10, 16), Palette.INK, Vector2(0, -12), 5))
-	life.add_child(npc)
+		life._motes.append([mote, base_x, base_y, float(i) * TAU / 3.0])
 	return life
+
+## Drives the eased ambient life in the lecture hall.
+class Life:
+	extends Node2D
+	var t := 0.0
+	var second: Polygon2D
+	var _motes: Array = []   # [node, base_x, base_y, phase]
+
+	func _process(delta: float) -> void:
+		t += delta
+		if second:
+			# Second hand: eased snap toward each new second (accelerate/brake),
+			# never a flat constant spin.
+			var target: float = int(t) * TAU / 60.0
+			var k: float = clampf(1.0 - pow(0.5, delta * 6.0), 0.0, 1.0)
+			second.rotation = lerp_angle(second.rotation, target, k)
+		for m in _motes:
+			var mote: Node2D = m[0]
+			mote.position.y = m[2] + sin(t * 1.4 + m[3]) * 5.0
+			mote.position.x = m[1] + cos(t * 0.6 + m[3]) * 8.0
 
 ## Generic bookshelf unit. `pos` is the group origin.
 static func bookshelf(pos: Vector2, unit_w: float, height: float, shelves: int) -> Node2D:

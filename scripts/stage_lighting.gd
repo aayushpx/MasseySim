@@ -79,17 +79,25 @@ static func classroom(w: float, h: float) -> Node2D:
 	rig.add_child(point(Color(0.62, 0.78, 1.0), 0.5, Vector2(0, -h * 0.5 + 26), 2.3))
 
 	# --- Occluders (mirror the lecture_hall furniture layout) ---
-	# Front board wall + lectern stand cast a strong line.
+	# Front board wall + podium cast a strong line.
 	rig.add_child(occ_rect(w - 40, 36, Vector2(0, -h * 0.5 + 60)))
-	rig.add_child(occ_rect(150, 86, Vector2(0, -h * 0.5 + 34)))
+	rig.add_child(occ_rect(60, 40, Vector2(-44, -h * 0.5 + 96)))
 
-	# Three rows of desks -> one long slab per row.
-	for r in 3:
-		rig.add_child(occ_rect(w - 60, 26, Vector2(0, -h * 0.5 + 128 + r * 44)))
+	# Two desk banks (4 columns x 2 rows) facing the board.
+	var bank_x := [-126.0, -50.0, 50.0, 126.0]
+	for row in 2:
+		var y: float = -h * 0.5 + 134 + row * 44
+		for s in 4:
+			rig.add_child(occ_rect(46, 14, Vector2(bank_x[s], y - 6)))
 
-	# Bookshelves along the side walls.
-	rig.add_child(occ_rect(66, 152, Vector2(w * 0.5 - 34, 0)))
-	rig.add_child(occ_rect(66, 152, Vector2(-w * 0.5 + 34, 0)))
+	# Reading nook (back-left) and lounge (back-right) clusters.
+	rig.add_child(occ_rect(58, 116, Vector2(-126, 92)))
+	rig.add_child(occ_rect(26, 22, Vector2(-90, 112)))
+	rig.add_child(occ_rect(18, 18, Vector2(-52, 122)))
+	rig.add_child(occ_rect(30, 22, Vector2(-138, 132)))
+	rig.add_child(occ_rect(26, 22, Vector2(84, 112)))
+	rig.add_child(occ_rect(26, 22, Vector2(152, 112)))
+	rig.add_child(occ_rect(18, 18, Vector2(118, 132)))
 
 	# Plants in the front corners.
 	rig.add_child(occ_circle(12, Vector2(-w * 0.5 + 22, -h * 0.5 + 110)))
