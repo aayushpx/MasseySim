@@ -24,10 +24,9 @@ static func display_font(weight: int = 700) -> Font:
 static func _ensure_fonts() -> void:
 	if _body_font != null:
 		return
-	_body_font = FontFile.new()
-	_body_font.load_dynamic_font("res://assets/fonts/WorkSans.ttf")
-	_display_font = FontFile.new()
-	_display_font.load_dynamic_font("res://assets/fonts/Fraunces.ttf")
+	_body_font = load("res://assets/fonts/WorkSans.ttf") as FontFile
+	_display_font = load("res://assets/fonts/Fraunces.ttf") as FontFile
+
 
 ## Wrap a set of nodes in a positioned container "decor".
 static func group(nodes: Array) -> Node2D:
