@@ -18,6 +18,7 @@ config/features=PackedStringArray("4.7")
 [autoload]
 
 GameState="*res://autoloads/game_state.gd"
+AudioFx="*res://autoloads/audio.gd"
 
 [display]
 

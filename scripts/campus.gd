@@ -1,18 +1,21 @@
 extends Node2D
-## Campus hub: the single walkable map with 6 zones.
-## The world, zones and HUD are all built in code (placeholder shapes only).
+## Campus hub: the single walkable map with 6 zones, now rendered as a flat
+## vector "academic poster" composition - glowing ground, themed floors with
+## dressing props, styled HUD with vector meter icons, time-of-day tinting,
+## vignette, moment shake and a day-transition wipe.
 
 const WORLD_W := 2400.0
 const WORLD_H := 1800.0
+const TINT_TWEEN := 0.6
 
-# zone_key -> {pos (centre), size, label, color}
+# zone_key -> {pos, size, label, floor tone, decor builder name}
 const ZONE_DEFS := {
-    "lecture":   {"pos": Vector2(450, 400),   "size": Vector2(360, 260), "label": "Lecture Hall",        "color": Color("#004b8d")},
-    "library":   {"pos": Vector2(1950, 400),  "size": Vector2(360, 260), "label": "The Spiral Library",  "color": Color("#004b8d")},
-    "cafeteria": {"pos": Vector2(450, 1400),  "size": Vector2(360, 260), "label": "Food Hall",           "color": Color("#004b8d")},
-    "flat":      {"pos": Vector2(1950, 1400), "size": Vector2(360, 260), "label": "Dorm Flat",           "color": Color("#004b8d")},
-    "clubroom":  {"pos": Vector2(1650, 900),  "size": Vector2(360, 260), "label": "MUITSA Clubroom",     "color": Color("#4A148C")},
-    "exam":      {"pos": Vector2(1200, 250),  "size": Vector2(360, 240), "label": "Exam Hall",           "color": Color("#4789C8")},
+    "lecture":   {"pos": Vector2(450, 400),   "size": Vector2(380, 280), "label": "Lecture Hall",        "floor": Palette.BLUE,        "decor": "lecture"},
+    "library":   {"pos": Vector2(1950, 400),  "size": Vector2(380, 280), "label": "The Spiral Library",  "floor": Color("#143a6b"),    "decor": "library"},
+    "cafeteria": {"pos": Vector2(450, 1400),  "size": Vector2(380, 280), "label": "Food Hall",           "floor": Color("#e7ddc6"),   "decor": "cafeteria"},
+    "flat":      {"pos": Vector2(1950, 1400), "size": Vector2(380, 280), "label": "Dorm Flat",           "floor": Color("#e6d9bd"),   "decor": "flat"},
+    "clubroom":  {"pos": Vector2(1650, 900),  "size": Vector2(380, 280), "label": "MUITSA Clubroom",     "floor": Palette.PURPLE_DARK, "decor": "clubroom"},
+    "exam":      {"pos": Vector2(1200, 230),  "size": Vector2(380, 260), "label": "Exam Hall",           "floor": Color("#0b2a50"),   "decor": "exam"},
 }
 
 @onready var player: CharacterBody2D = $Player
@@ -20,45 +23,106 @@ var current_zone := ""
 var popup: PanelContainer
 var prompt_lbl: Label
 var toast_lbl: Label
+var toast_panel: PanelContainer
 var day_lbl: Label
-var slot_dots: Array = []
-var bars := {}
+var slot_lbl: Label
+var wipe: ColorRect
+var wipe_lbl: Label
+var metered := {}        # "energy" -> MeterRow
+var fx_layer: CanvasLayer
+var slot_pills := []
+var mod: CanvasModulate
+var _tint_tween: Tween
+var cam: Camera2D
+var _last_day := -1
+var _prev_meters := {"energy": 70.0, "stress": 30.0, "gpa": 60.0}
 
 func _ready() -> void:
-    _build_world()
+    _build_ground()
+    _build_pathways()
     _build_zones()
     _build_hud()
     _setup_camera()
+    AudioFx.music("campus")
 
-    # Spawn the player midpoint of the quad.
-    player.global_position = Vector2(1200, 950)
-
-    # Listen for zone enter/exit (zones set GameState.current_zone).
     GameState.meters_changed.connect(_refresh_hud)
     GameState.day_changed.connect(_refresh_hud)
+    refresh_now()
     _refresh_hud()
 
-## Ground + a lighter central quad walkway.
-func _build_world() -> void:
-    var ground := Polygon2D.new()
-    ground.polygon = PackedVector2Array([
-        Vector2.ZERO, Vector2(WORLD_W, 0), Vector2(WORLD_W, WORLD_H), Vector2(0, WORLD_H)])
-    ground.color = Color("#0A2240")
-    add_child(ground)
+func _process(_delta: float) -> void:
+    if not GameState.has_run_started:
+        _apply_slot_tint(Palette.TINT_MORNING)
+        return
+    if current_zone != "" and not popup.visible:
+        var zone_name: String = ZONE_DEFS[current_zone]["label"]
+        var opts: Array = GameState.zone_options(current_zone)
+        if opts.is_empty():
+            prompt_lbl.text = ""
+        else:
+            prompt_lbl.text = "Press E  -  %s" % zone_name
+        if Input.is_action_just_pressed("interact") and opts.size() > 0:
+            _open_popup(current_zone)
+    elif current_zone == "":
+        prompt_lbl.text = ""
 
-    var quad := Polygon2D.new()
-    quad.polygon = PackedVector2Array([
-        Vector2(850, 750), Vector2(1550, 750), Vector2(1550, 1050), Vector2(850, 1050)])
-    quad.color = Color("#123a6b")
-    add_child(quad)
+# --- World ---------------------------------------------------------------
 
-## A zone = Area2D + collision rect + coloured plate + label sign.
+func _build_ground() -> void:
+    # Glowing ground: a soft radial gradient, deeper at the world edges.
+    var glow := ColorRect.new()
+    glow.name = "Ground"
+    glow.position = Vector2.ZERO
+    glow.size = Vector2(WORLD_W, WORLD_H)
+    glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    var mat := ShaderMaterial.new()
+    mat.shader = load("res://assets/shaders/world_glow.gdshader")
+    glow.material = mat
+    add_child(glow)
+
+    # A faint grid of lawn stripes for depth (very subtle).
+    for i in 6:
+        var stripe := Polygon2D.new()
+        stripe.polygon = PackedVector2Array([
+            Vector2(200.0 + i * 200.0, 0), Vector2(200.0 + i * 200.0 + 70, 0),
+            Vector2(200.0 + i * 200.0 + 70, WORLD_H), Vector2(200.0 + i * 200.0, WORLD_H)])
+        stripe.color = Color(1.0, 1.0, 1.0, 0.02)
+        add_child(stripe)
+
+func _build_pathways() -> void:
+    # Central plus-shaped walkways (rectangular strips in the ground tone).
+    var strips := [
+        [Vector2(560, 900), Vector2(1880, 900), 46.0],
+        [Vector2(1200, 330), Vector2(1200, 1470), 46.0],
+    ]
+    for s in strips:
+        var a: Vector2 = s[0]
+        var b: Vector2 = s[1]
+        var w: float = s[2]
+        var line := Line2D.new()
+        line.width = w
+        line.default_color = Color(1.0, 1.0, 1.0, 0.05)
+        line.add_point(a)
+        line.add_point(b)
+        add_child(line)
+
+    # Fountain at the quad centre.
+    var f := Props.poly(Props.ellipse(46, 46, 24), Palette.LIGHT, Vector2(1200, 900))
+    add_child(f)
+    var f2 := Props.poly(Props.ellipse(30, 30, 20), Palette.BRIGHT, Vector2(1200, 900), 1)
+    add_child(f2)
+    var f3 := Props.poly(Props.ellipse(16, 16, 16), Palette.DARK, Vector2(1200, 900), 2)
+    add_child(f3)
+
+# --- Zones (floor plate + collision + dressing + sign) ------------------
+
 func _build_zones() -> void:
     for key in ZONE_DEFS:
         var def: Dictionary = ZONE_DEFS[key]
         var zone := Area2D.new()
         zone.name = key.capitalize()
         zone.position = def["pos"]
+        add_child(zone)
 
         var shape := CollisionShape2D.new()
         var rect := RectangleShape2D.new()
@@ -66,25 +130,24 @@ func _build_zones() -> void:
         shape.shape = rect
         zone.add_child(shape)
 
-        var plate := Polygon2D.new()
-        plate.polygon = PackedVector2Array([
-            Vector2(-def["size"].x / 2, -def["size"].y / 2),
-            Vector2(def["size"].x / 2, -def["size"].y / 2),
-            Vector2(def["size"].x / 2, def["size"].y / 2),
-            Vector2(-def["size"].x / 2, def["size"].y / 2)])
-        plate.color = def["color"]
+        var w: float = def["size"].x
+        var h: float = def["size"].y
+
+        # Floor plate: rounded, slightly offset shadow + the plate itself.
+        var shadow := Props.poly(Props.rounded_rect(w + 8, h + 8, 18, 6), Color(0.0, 0.0, 0.0, 0.35), Vector2(4, 6))
+        zone.add_child(shadow)
+        var plate := Props.poly(Props.rounded_rect(w, h, 18), def["floor"])
         zone.add_child(plate)
 
-        var sign := Label.new()
-        sign.text = def["label"]
-        sign.position = Vector2(-200, -def["size"].y / 2 - 34)
-        sign.size = Vector2(400, 30)
-        sign.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        sign.add_theme_font_size_override("font_size", 17)
-        sign.add_theme_color_override("font_color", Color("#e4a024"))
-        zone.add_child(sign)
+        # Dressing (drawn above the plate).
+        var decor := _zone_decor(key, w, h)
+        if decor != null:
+            zone.add_child(decor)
 
-        add_child(zone)
+        # Sign chip above the door line.
+        zone.add_child(_make_sign(key, def["label"]))
+        zone.add_child(_make_door(key, w, h))
+
         zone.body_entered.connect(_on_zone_entered.bind(key))
         zone.body_exited.connect(_on_zone_exited.bind(key))
 
@@ -96,116 +159,285 @@ func _on_zone_exited(_body: Node2D, key: String) -> void:
     if current_zone == key:
         current_zone = ""
 
-## Top HUD: day, three meter bars, slot dots, menu button, prompt, toast.
+func _make_sign(key: String, label: String) -> Node2D:
+    var holder := Node2D.new()
+    holder.position = Vector2(0, -190)
+    var pill := Props.poly(Props.rounded_rect(360, 40, 12), Palette.INK, Vector2.ZERO, 1)
+    holder.add_child(pill)
+    var cap := Props.poly(Props.rounded_rect(356, 36, 11), Palette.BLUE, Vector2.ZERO, 2)
+    holder.add_child(cap)
+    var stroke := Props.poly(Props.rounded_rect(352, 32, 10), Palette.DARK, Vector2.ZERO, 3)
+    stroke.modulate.a = 0.9
+    holder.add_child(stroke)
+    var lbl := Label.new()
+    lbl.text = label
+    lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    lbl.position = Vector2(-180, -20)
+    lbl.size = Vector2(360, 40)
+    lbl.add_theme_font_override("font", CampusDecor.display_font(700))
+    lbl.add_theme_font_size_override("font_size", 21)
+    lbl.add_theme_color_override("font_color", Palette.GOLD if _is_club(key) else Palette.PAPER)
+    holder.add_child(lbl)
+    return holder
+
+func _make_door(key: String, w: float, h: float) -> Node2D:
+    var holder := Node2D.new()
+    holder.position = Vector2(0, -h * 0.5 + 12)
+    var col := Palette.GOLD if _is_club(key) else Palette.PAPER
+    var door := Props.poly(Props.rounded_rect(54, 16, 6), Color(1.0, 1.0, 1.0, 0.10))
+    door.color = Color(1, 1, 1, 0.12)
+    holder.add_child(door)
+    var knob := Props.poly(Props.ellipse(4, 4, 10), col, Vector2(16, 0), 1)
+    holder.add_child(knob)
+    return holder
+
+func _is_club(key: String) -> bool:
+    return key == "clubroom"
+
+func _zone_decor(key: String, w: float, h: float) -> Node2D:
+    match key:
+        "lecture":
+            return CampusDecor.lecture_hall(w, h)
+        "library":
+            var out: Array = []
+            out.append(CampusDecor.bookshelf(Vector2(-w * 0.5 + 40, 0), 66, 160, 4))
+            out.append(CampusDecor.bookshelf(Vector2(w * 0.5 - 40, 0), 66, 160, 4))
+            out.append(CampusDecor.reading_table(Vector2(-90, -40), 66))
+            out.append(CampusDecor.reading_table(Vector2(30, -40), 66))
+            out.append(CampusDecor.reading_table(Vector2(-60, 60), 66))
+            out.append(CampusDecor.reading_table(Vector2(70, 60), 66))
+            out.append(CampusDecor.plant(Vector2(-w * 0.5 + 30, h * 0.5 - 34)))
+            out.append(CampusDecor.plant(Vector2(w * 0.5 - 30, h * 0.5 - 34)))
+            return CampusDecor.group(out)
+        "cafeteria":
+            var out: Array = []
+            out.append(CampusDecor.cafe_counter(Vector2(-120, -h * 0.5 + 60), 150))
+            out.append(CampusDecor.cafe_counter(Vector2(120, -h * 0.5 + 60), 90))
+            out.append(CampusDecor.reading_table(Vector2(0, 20), 130))
+            out.append(CampusDecor.reading_table(Vector2(-120, 110), 130))
+            out.append(CampusDecor.reading_table(Vector2(120, 110), 130))
+            return CampusDecor.group(out)
+        "flat":
+            var out: Array = []
+            out.append(CampusDecor.bed(Vector2(-110, 0), 120))
+            out.append(CampusDecor.bed(Vector2(120, 0), 120))
+            out.append(CampusDecor.bookshelf(Vector2(-w * 0.5 + 34, -h * 0.5 + 70), 52, 110, 3))
+            out.append(CampusDecor.reading_table(Vector2(0, 100), 90))
+            return CampusDecor.group(out)
+        "clubroom":
+            var out: Array = []
+            out.append(CampusDecor.banner(Vector2(0, -70), 260, 86))
+            out.append(CampusDecor.reading_table(Vector2(-110, 70), 80))
+            out.append(CampusDecor.reading_table(Vector2(110, 70), 80))
+            out.append(CampusDecor.plant(Vector2(-w * 0.5 + 32, -h * 0.5 + 30)))
+            out.append(CampusDecor.plant(Vector2(w * 0.5 - 32, -h * 0.5 + 30)))
+            return CampusDecor.group(out)
+        "exam":
+            var out: Array = []
+            out.append(CampusDecor.exam_rows(Vector2(0, -30), w, 6))
+            var clock_lbl := CampusDecor._text("EXAM PROCTORED. RESULTS TODAY.", Vector2(-150, -h * 0.5 + 18), 14, Palette.FOG, false, 700)
+            out.append(clock_lbl)
+            var indent := Props.poly(Props.rounded_rect(120, 40, 8), Palette.INK, Vector2(0, -h * 0.5 + 52))
+            out.append(indent)
+            var seat := Props.poly(Props.ellipse(22, 22, 14), Palette.GOLD, Vector2(0, -h * 0.5 + 52), 1)
+            out.append(seat)
+            return CampusDecor.group(out)
+    return null
+
+# --- HUD -----------------------------------------------------------------
+
 func _build_hud() -> void:
     var ui := CanvasLayer.new()
     ui.layer = 10
     add_child(ui)
 
+    # --- Left panel: day + meters + slots.
     var panel := PanelContainer.new()
     panel.position = Vector2(16, 16)
-    panel.size = Vector2(420, 152)
     panel.add_theme_stylebox_override("panel", _panel_style())
     ui.add_child(panel)
     var vbox := VBoxContainer.new()
-    vbox.position = Vector2(16, 16)
+    vbox.add_theme_constant_override("separation", 8)
     panel.add_child(vbox)
 
+    var head := HBoxContainer.new()
+    head.add_theme_constant_override("separation", 10)
     day_lbl = Label.new()
-    day_lbl.add_theme_font_size_override("font_size", 20)
-    day_lbl.add_theme_color_override("font_color", Color("#e4a024"))
-    vbox.add_child(day_lbl)
+    day_lbl.add_theme_font_override("font", CampusDecor.display_font(800))
+    day_lbl.add_theme_font_size_override("font_size", 26)
+    day_lbl.add_theme_color_override("font_color", Palette.GOLD)
+    head.add_child(day_lbl)
+    slot_lbl = Label.new()
+    slot_lbl.add_theme_font_override("font", CampusDecor.body_font(600))
+    slot_lbl.add_theme_font_size_override("font_size", 13)
+    slot_lbl.add_theme_color_override("font_color", Palette.FOG)
+    slot_lbl.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+    head.add_child(slot_lbl)
+    vbox.add_child(head)
 
-    bars["energy"] = _make_bar("ENERGY", Color("#25AAE1"), vbox)
-    bars["stress"] = _make_bar("STRESS", Color("#e4a024"), vbox)
-    bars["gpa"] = _make_bar("GPA", Color("#4789C8"), vbox)
+    for key in ["energy", "stress", "gpa"]:
+        var row := MeterRow.new()
+        row.setup(key)
+        vbox.add_child(row)
+        metered[key] = row
 
-    # Slot dots: three squares showing how many of today's actions are spent.
+    # Slot pills (Morning / Afternoon / Evening).
     var slots_row := HBoxContainer.new()
     slots_row.add_theme_constant_override("separation", 6)
     for i in GameState.SLOTS_PER_DAY:
-        var dot := ColorRect.new()
-        dot.custom_minimum_size = Vector2(22, 22)
-        dot.color = Color("#1b4a80")
-        slots_row.add_child(dot)
-        slot_dots.append(dot)
+        var pill := Control.new()
+        pill.custom_minimum_size = Vector2(96, 20)
+        pill.add_theme_font_override("font", CampusDecor.body_font(600))
+        pill.add_theme_font_size_override("font_size", 11)
+        pill.draw.connect(_draw_pill.bind(i, pill))
+        slots_row.add_child(pill)
+        slot_pills.append(pill)
     vbox.add_child(slots_row)
 
-    var menu_btn := Button.new()
-    menu_btn.text = "Quit to menu"
-    menu_btn.position = Vector2(16, 180)
-    menu_btn.pressed.connect(_on_menu)
-    ui.add_child(menu_btn)
+    # Quit button (text-only, quiet).
+    var quit := Button.new()
+    quit.text = "Menu"
+    quit.flat = true
+    quit.add_theme_font_override("font", CampusDecor.body_font(500))
+    quit.add_theme_font_size_override("font_size", 12)
+    quit.add_theme_color_override("font_color", Palette.FOG)
+    quit.add_theme_color_override("font_hover_color", Palette.GOLD)
+    quit.position = Vector2(16, 330)
+    quit.pressed.connect(_on_menu)
+    ui.add_child(quit)
 
-    # "Press E" prompt that appears when standing in a zone.
+    # --- Prompt chip (bottom centre).
     prompt_lbl = Label.new()
-    prompt_lbl.position = Vector2(0, 640)
-    prompt_lbl.size = Vector2(1280, 40)
     prompt_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    prompt_lbl.add_theme_font_size_override("font_size", 20)
-    prompt_lbl.add_theme_color_override("font_color", Color("#e4a024"))
+    prompt_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    prompt_lbl.position = Vector2(390, 680)
+    prompt_lbl.size = Vector2(500, 34)
+    prompt_lbl.add_theme_font_override("font", CampusDecor.body_font(600))
+    prompt_lbl.add_theme_font_size_override("font_size", 15)
+    prompt_lbl.add_theme_color_override("font_color", Palette.GOLD)
+    prompt_lbl.draw.connect(_draw_prompt_chip.bind(prompt_lbl))
     ui.add_child(prompt_lbl)
 
-    # Toast for messages ("Assignment late! GPA -10" and friends).
+    # --- Toast.
     toast_lbl = Label.new()
-    toast_lbl.position = Vector2(240, 260)
-    toast_lbl.size = Vector2(800, 60)
     toast_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    toast_lbl.add_theme_font_size_override("font_size", 22)
-    toast_lbl.add_theme_color_override("font_color", Color("#ffffff"))
+    toast_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    toast_lbl.position = Vector2(240, 60)
+    toast_lbl.size = Vector2(800, 40)
+    toast_lbl.add_theme_font_override("font", CampusDecor.body_font(500))
+    toast_lbl.add_theme_font_size_override("font_size", 17)
+    toast_lbl.add_theme_color_override("font_color", Palette.PAPER)
+    toast_lbl.draw.connect(_draw_toast_chip.bind(toast_lbl))
     ui.add_child(toast_lbl)
 
-    # Action chooser popup (hidden until you press E in a zone).
+    # --- Action popup.
     popup = PanelContainer.new()
     popup.anchor_left = 0.5
     popup.anchor_top = 0.5
     popup.anchor_right = 0.5
     popup.anchor_bottom = 0.5
-    popup.offset_left = -260
-    popup.offset_top = -150
-    popup.offset_right = 260
-    popup.offset_bottom = 150
+    popup.offset_left = -280
+    popup.offset_top = -170
+    popup.offset_right = 280
+    popup.offset_bottom = 170
     popup.process_mode = Node.PROCESS_MODE_ALWAYS
     popup.add_theme_stylebox_override("panel", _panel_style())
     popup.hide()
     ui.add_child(popup)
     _build_popup_children()
 
+    # --- Day transition wipe.
+    wipe = ColorRect.new()
+    wipe.color = Color("#06152b")
+    wipe.anchor_right = 1.0
+    wipe.anchor_bottom = 1.0
+    wipe.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    wipe.modulate.a = 0.0
+    ui.add_child(wipe)
+    wipe_lbl = Label.new()
+    wipe_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    wipe_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    wipe_lbl.anchor_right = 1.0
+    wipe_lbl.anchor_bottom = 1.0
+    wipe_lbl.position = Vector2(0, -40)
+    wipe_lbl.add_theme_font_override("font", CampusDecor.display_font(700))
+    wipe_lbl.add_theme_font_size_override("font_size", 72)
+    wipe_lbl.add_theme_color_override("font_color", Palette.GOLD)
+    wipe_lbl.modulate.a = 0.0
+    ui.add_child(wipe_lbl)
+
+    # --- Atmosphere: vignette (world layer 5, under HUD).
+    var vig := ColorRect.new()
+    vig.anchor_right = 1.0
+    vig.anchor_bottom = 1.0
+    vig.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    var vmat := ShaderMaterial.new()
+    vmat.shader = load("res://assets/shaders/vignette.gdshader")
+    vig.material = vmat
+    var vig_layer := CanvasLayer.new()
+    vig_layer.layer = 5
+    vig_layer.add_child(vig)
+    add_child(vig_layer)
+
+    # --- Juice: screen-space particle layer (above HUD art, below wipe).
+    fx_layer = CanvasLayer.new()
+    fx_layer.layer = 11
+    add_child(fx_layer)
+
 func _panel_style() -> StyleBoxFlat:
     var s := StyleBoxFlat.new()
-    s.bg_color = Color(0.04, 0.11, 0.22, 0.94)
-    s.border_color = Color("#e4a024")
-    s.set_border_width_all(2)
-    s.set_corner_radius_all(6)
+    s.bg_color = Color(0.02, 0.06, 0.13, 0.93)
+    s.border_color = Palette.GOLD
+    s.set_border_width_all(1)
+    s.set_corner_radius_all(12)
+    s.shadow_color = Color(0.0, 0.0, 0.0, 0.45)
+    s.shadow_size = 10
+    s.content_margin_left = 18
+    s.content_margin_right = 18
+    s.content_margin_top = 14
+    s.content_margin_bottom = 14
     return s
 
-func _make_bar(label: String, col: Color, parent: Node) -> ProgressBar:
-    var hb := HBoxContainer.new()
-    var name_lbl := Label.new()
-    name_lbl.text = label
-    name_lbl.custom_minimum_size = Vector2(70, 0)
-    name_lbl.add_theme_font_size_override("font_size", 13)
-    name_lbl.add_theme_color_override("font_color", Color("#c9d8ee"))
-    hb.add_child(name_lbl)
+func _draw_pill(ci: int, pill: Control) -> void:
+    if pill.size.x <= 0:
+        return
+    var track := Rect2(Vector2(3, 3), pill.size - Vector2(6, 6))
+    pill.draw_rect(track, Palette.SUNK, true)
+    var names := ["MORNING", "AFTERNOON", "EVENING"]
+    if ci < GameState.slots_used:
+        pill.draw_rect(track, Palette.GOLD, true)
+        pill.draw_string(CampusDecor.body_font(700), Vector2(6, 14), names[ci], HORIZONTAL_ALIGNMENT_LEFT, track.size.x, 10, Palette.DARK)
+    elif ci == GameState.slots_used:
+        pill.draw_rect(track, Palette.BRIGHT, true)
+        pill.draw_string(CampusDecor.body_font(700), Vector2(6, 14), names[ci], HORIZONTAL_ALIGNMENT_LEFT, track.size.x, 10, Palette.DARK)
+    else:
+        pill.draw_string(CampusDecor.body_font(600), Vector2(6, 14), names[ci], HORIZONTAL_ALIGNMENT_LEFT, track.size.x, 10, Palette.FOG)
+    pill.draw_rect(track, Palette.PAPER, false, 1.0)
 
-    var bar := ProgressBar.new()
-    bar.custom_minimum_size = Vector2(280, 18)
-    bar.min_value = 0.0
-    bar.max_value = GameState.GPA_MAX
-    bar.show_percentage = false
-    bar.add_theme_stylebox_override("background", _bar_bg_style())
-    parent.add_child(hb)
-    hb.add_child(bar)
-    return bar
+func _draw_prompt_chip(lbl: Control) -> void:
+    if lbl.text == "":
+        return
+    var sz := lbl.size
+    var box := Rect2(Vector2(sz.x * 0.5 - 150, 0), Vector2(300, sz.y))
+    lbl.draw_style_box(_chip_style(), box)
 
-func _bar_bg_style() -> StyleBoxFlat:
+func _draw_toast_chip(lbl: Control) -> void:
+    if lbl.text == "":
+        return
+    var sz := lbl.size
+    var box := Rect2(Vector2(sz.x * 0.5 - 230, 0), Vector2(460, sz.y))
+    lbl.draw_style_box(_chip_style(), box)
+
+func _chip_style() -> StyleBoxFlat:
     var s := StyleBoxFlat.new()
-    s.bg_color = Color("#0c1e38")
-    s.set_corner_radius_all(4)
+    s.bg_color = Color(0.02, 0.06, 0.13, 0.85)
+    s.set_corner_radius_all(10)
+    s.border_color = Palette.BLUE
+    s.set_border_width_all(1)
     return s
 
 func _build_popup_children() -> void:
-    # Populated at open-time; here we just give it a static skeleton.
     var box := VBoxContainer.new()
     box.name = "PopBox"
     box.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -217,40 +449,52 @@ func _build_popup_children() -> void:
     title.name = "Title"
     title.text = ""
     title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    title.add_theme_font_size_override("font_size", 22)
-    title.add_theme_color_override("font_color", Color("#e4a024"))
+    title.add_theme_font_override("font", CampusDecor.display_font(700))
+    title.add_theme_font_size_override("font_size", 26)
+    title.add_theme_color_override("font_color", Palette.GOLD)
     box.add_child(title)
 
     var options_box := VBoxContainer.new()
     options_box.name = "Options"
-    options_box.add_theme_constant_override("separation", 10)
+    options_box.add_theme_constant_override("separation", 8)
     box.add_child(options_box)
 
 func _setup_camera() -> void:
-    var cam := player.get_node_or_null("Camera2D") as Camera2D
-    if cam == null:
+    var pj := player.get_node_or_null("Camera2D") as Camera2D
+    if pj == null:
         return
+    cam = pj
     cam.limit_left = 0
     cam.limit_top = 0
     cam.limit_right = int(WORLD_W)
     cam.limit_bottom = int(WORLD_H)
 
-## Poll zone + interact input each frame; refresh the dynamic HUD bits.
-func _process(_delta: float) -> void:
-    if not GameState.has_run_started:
-        return
-    if current_zone != "" and not popup.visible:
-        var zone_name: String = ZONE_DEFS[current_zone]["label"]
-        var opts: Array = GameState.zone_options(current_zone)
-        if opts.size() == 0:
-            prompt_lbl.text = ""
-        else:
-            prompt_lbl.text = "Press E  -  %s" % zone_name
-        if Input.is_action_just_pressed("interact") and opts.size() > 0:
-            _open_popup(current_zone)
-    elif current_zone == "":
-        prompt_lbl.text = ""
+    # Atmosphere: time-of-day tinting.
+    mod = CanvasModulate.new()
+    mod.color = Palette.TINT_MORNING
+    add_child(mod)
 
+    refresh_now()
+
+func refresh_now() -> void:
+    if cam != null:
+        cam.position_smoothing_speed = 6.0
+    _apply_slot_tint(_slot_current_tint())
+
+func _slot_current_tint() -> Color:
+    if not GameState.has_run_started:
+        return Palette.TINT_MORNING
+    return Palette.slot_tint(GameState.slot_name())
+
+func _apply_slot_tint(col: Color) -> void:
+    if mod == null or mod.color.is_equal_approx(col):
+        return
+    if _tint_tween and _tint_tween.is_valid():
+        _tint_tween.kill()
+    _tint_tween = mod.create_tween()
+    _tint_tween.tween_property(mod, "color", col, TINT_TWEEN)
+
+# --- Interaction ---------------------------------------------------------
 func _open_popup(zone: String) -> void:
     var opts: Array = GameState.zone_options(zone)
     if opts.is_empty():
@@ -265,38 +509,85 @@ func _open_popup(zone: String) -> void:
     for opt in opts:
         var btn := Button.new()
         btn.text = opt["label"]
-        btn.custom_minimum_size = Vector2(440, 44)
-        btn.add_theme_font_size_override("font_size", 16)
+        btn.custom_minimum_size = Vector2(460, 40)
+        btn.add_theme_font_override("font", CampusDecor.body_font(500))
+        btn.add_theme_font_size_override("font_size", 15)
+        btn.add_theme_stylebox_override("normal", _btn_style(Palette.PURPLE_DARK if zone == "clubroom" else Palette.LIGHT))
+        btn.add_theme_stylebox_override("hover", _btn_style(Palette.GOLD))
+        btn.add_theme_stylebox_override("pressed", _btn_style(Palette.BLUE))
+        btn.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+        btn.add_theme_color_override("font_color", Palette.DARK)
+        btn.add_theme_color_override("font_hover_color", Palette.DARK)
         btn.pressed.connect(_choose_option.bind(zone, opt["id"]))
         options_box.add_child(btn)
     popup.show()
     get_tree().paused = true
+    AudioFx.sfx("select")
+    _popup_enter_tween(popup)
+
+func _btn_style(col: Color) -> StyleBoxFlat:
+    var s := StyleBoxFlat.new()
+    s.bg_color = col
+    s.set_corner_radius_all(8)
+    s.content_margin_left = 14
+    s.content_margin_right = 14
+    s.content_margin_top = 10
+    s.content_margin_bottom = 10
+    return s
+
+func _popup_enter_tween(p: Control) -> void:
+    p.modulate.a = 0.0
+    p.scale = Vector2(0.92, 0.92)
+    var tw := p.create_tween()
+    tw.set_parallel(true)
+    tw.tween_property(p, "modulate:a", 1.0, 0.18)
+    tw.tween_property(p, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func _choose_option(zone: String, opt_id: String) -> void:
     popup.hide()
     get_tree().paused = false
     var minigame: String = GameState.perform_option(zone, opt_id)
     if minigame != "":
-        get_tree().change_scene_to_file(minigame)
+        _fade_out_then(minigame)
     else:
         _maybe_leave()
         _refresh_hud()
 
+func _fade_out_then(scene_path: String) -> void:
+    var tw := create_tween()
+    tw.tween_property(wipe, "modulate:a", 1.0, 0.22)
+    tw.tween_callback(func() -> void: get_tree().change_scene_to_file(scene_path))
+
 func _maybe_leave() -> void:
     var next := GameState.next_scene_after_action()
     if next != "res://scenes/campus.tscn":
-        get_tree().change_scene_to_file(next)
+        _fade_out_then(next)
+
+# --- Refresh -------------------------------------------------------------
 
 func _refresh_hud() -> void:
-    day_lbl.text = "Day %d/%d - %s  (%d of %d slots used)" % [
-        GameState.day, GameState.GAME_DAYS, GameState.slot_name(),
-        GameState.slots_used, GameState.SLOTS_PER_DAY]
-    bars["energy"].value = GameState.energy
-    bars["stress"].value = GameState.stress
-    bars["gpa"].value = GameState.gpa
+    if not is_inside_tree():
+        return
+    var d: int = GameState.day
+    day_lbl.text = "DAY %d" % d
+    slot_lbl.text = GameState.slot_name().to_upper()
     for i in GameState.SLOTS_PER_DAY:
-        slot_dots[i].color = Color("#e4a024") if i < GameState.slots_used else Color("#1b4a80")
-    # Flash the assignment/library reminder on due days.
+        if i < slot_pills.size():
+            slot_pills[i].queue_redraw()
+
+    # Meter tweens + feedback.
+    for key in ["energy", "stress", "gpa"]:
+        if not metered.has(key):
+            continue
+        var row: MeterRow = metered[key]
+        var cur: float = row.value
+        var target: float = GameState[key]
+        if absf(target - cur) > 0.01:
+            var tw := create_tween()
+            tw.tween_method(row.set_value, cur, target, 0.35)
+        _meter_feedback(key, target - _prev_meters[key], row)
+
+    # Toast logic (unchanged rules).
     if GameState.day in GameState.ASSIGN_DAYS and not GameState.assignments_done.get(GameState.day, false):
         toast_lbl.text = "Today: an assignment is DUE at the library!"
     elif GameState.day == 7 and not GameState.exam_taken:
@@ -305,9 +596,70 @@ func _refresh_hud() -> void:
         toast_lbl.text = GameState.toast_message
     else:
         toast_lbl.text = ""
+    toast_lbl.queue_redraw()
+
+    if d != _last_day:
+        _last_day = d
+        if GameState.has_run_started:
+            _day_wipe(d)
+
+    _prev_meters = {"energy": GameState.energy, "stress": GameState.stress, "gpa": GameState.gpa}
+
+func _meter_feedback(key: String, delta: float, row: MeterRow) -> void:
+    if absf(delta) < 0.5:
+        return
+    if key == "gpa" and delta > 0.0:
+        _sparkle(row.global_position + row.icon_pos() + Vector2(0, 8), Palette.GOLD)
+    elif key == "stress" and delta > 0.0:
+        _puff(row.global_position + row.icon_pos() + Vector2(0, 12), Palette.LIGHT)
+
+var parts_active: Array = []
+func _sparkle(at: Vector2, col: Color) -> void:
+    _burst(at, col, 10)
+func _puff(at: Vector2, col: Color) -> void:
+    _burst(at, col, 6)
+
+func _burst(at: Vector2, col: Color, count: int) -> void:
+    if fx_layer == null:
+        return
+    var p := CPUParticles2D.new()
+    p.position = at
+    p.amount = count
+    p.lifetime = 0.7
+    p.one_shot = true
+    p.explosiveness = 1.0
+    p.emitting = true
+    p.direction = Vector2(0, -1)
+    p.spread = 180.0
+    p.initial_velocity_min = 60.0
+    p.initial_velocity_max = 140.0
+    p.gravity = Vector2(0, 160.0)
+    p.scale_amount_min = 1.0
+    p.scale_amount_max = 2.0
+    var grad := Gradient.new()
+    grad.colors = [col, col, Color(col.r, col.g, col.b, 0.0)]
+    p.color_ramp = grad
+    fx_layer.add_child(p)
+    parts_active.append(p)
+    if parts_active.size() > 12:
+        var old: Node = parts_active.pop_front()
+        if is_instance_valid(old):
+            old.queue_free()
+
+func _day_wipe(day: int) -> void:
+    wipe_lbl.text = "DAY %d" % day
+    wipe.modulate.a = 1.0
+    wipe_lbl.modulate = Color(1, 1, 1, 1)
+    Fx.shake(cam, 5.0, 0.35)
+    AudioFx.sfx("tick")
+    var tw := create_tween()
+    tw.tween_property(wipe_lbl, "modulate:a", 0.0, 0.8).set_delay(0.55)
+    tw.parallel().tween_property(wipe, "modulate:a", 0.0, 0.8).set_delay(0.55)
+    tw.tween_callback(func() -> void: wipe_lbl.text = "")
 
 func _on_menu() -> void:
     get_tree().paused = false
     GameState.has_run_started = false
     GameState.last_result = {}
+    AudioFx.sfx("back")
     get_tree().change_scene_to_file("res://scenes/main_menu.tscn")

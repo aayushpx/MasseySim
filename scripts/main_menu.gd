@@ -1,60 +1,75 @@
 extends Control
-## Main menu: title screen with a Start button. All UI built in code so the
-## .tscn stays tiny.
+## Main menu: flat-vector Massey title screen with glow backdrop,
+## vector campus strip illustration, and a proper styled start button.
 
 func _ready() -> void:
-    # Background: Massey Dark Blue.
-    var bg := ColorRect.new()
-    bg.color = Color("#0A2240")
-    bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-    add_child(bg)
+    theme = UiKit.theme()
+    UiKit.backdrop(self)
+    AudioFx.music("menu")
 
     var centre := VBoxContainer.new()
     centre.set_anchors_preset(Control.PRESET_CENTER)
     centre.position = Vector2(-260, -180)
-    centre.size = Vector2(520, 360)
+    centre.size = Vector2(520, 380)
     centre.alignment = BoxContainer.ALIGNMENT_CENTER
-    centre.add_theme_constant_override("separation", 18)
+    centre.add_theme_constant_override("separation", 14)
     add_child(centre)
 
-    var title := Label.new()
-    title.text = "MASSEY UNI SIMULATOR"
-    title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    title.add_theme_font_size_override("font_size", 40)
-    title.add_theme_color_override("font_color", Color("#e4a024"))
+    var title := UiKit.label("MASSEY UNI SIMULATOR", 46, Palette.GOLD, true, 800)
+    title.add_theme_constant_override("shadow_offset_y", 3)
     centre.add_child(title)
 
-    var subtitle := Label.new()
-    subtitle.text = "Survive 7 days. Don't drop out. Try to graduate."
-    subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    subtitle.add_theme_font_size_override("font_size", 18)
-    subtitle.add_theme_color_override("font_color", Color("#4789C8"))
+    var subtitle := UiKit.label("Survive 7 days. Don't drop out. Try to graduate.", 16, Palette.LIGHT, false, 500)
     centre.add_child(subtitle)
 
-    var spacer := Control.new()
-    spacer.custom_minimum_size = Vector2(0, 24)
-    centre.add_child(spacer)
+    centre.add_child(Control.new()) # spacer
 
-    var start_btn := Button.new()
-    start_btn.text = "START SEMESTER"
-    start_btn.custom_minimum_size = Vector2(260, 56)
-    start_btn.add_theme_font_size_override("font_size", 24)
-    start_btn.pressed.connect(_on_start)
-    centre.add_child(start_btn)
+    var start := UiKit.button("START SEMESTER", Vector2(260, 58), 22, 700, true)
+    start.pressed.connect(_on_start)
+    centre.add_child(start)
 
-    var controls := Label.new()
-    controls.text = "Move: WASD / Arrows  |  Interact: E / Space\nTalk to the zones, survive the sem."
-    controls.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    controls.add_theme_font_size_override("font_size", 15)
-    controls.add_theme_color_override("font_color", Color("#9fb6d4"))
+    var controls := UiKit.label("Move: WASD / Arrows  |  Interact: E / Space\nTalk to the zones, survive the sem.", 13, Palette.FOG, false, 500)
     centre.add_child(controls)
 
-    var footer := Label.new()
-    footer.text = "A fan-made parody for MUITSA Game Making Hackathon 2026."
-    footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    footer.add_theme_font_size_override("font_size", 12)
-    footer.add_theme_color_override("font_color", Color("#5f7ca6"))
+    var footer := UiKit.label("A fan-made parody for MUITSA Game Making Hackathon 2026.\nMusic: Kevin MacLeod (incompetech.com) - CC BY 4.0. SFX: Kenney.nl - CC0.", 10, Palette.LIGHT, false, 500)
+    footer.modulate.a = 0.55
     centre.add_child(footer)
+
+    _draw_strip()
+    UiKit.fade_in(self)
+
+## Tiny flat-vector campus illustration strip at the bottom of the screen.
+func _draw_strip() -> void:
+    var base_y := 640.0
+    var layer := CanvasLayer.new()
+    layer.layer = 1
+    add_child(layer)
+
+    # Ground band.
+    var ground := Props.poly(Props.rounded_rect(1260, 46, 8, 4), Palette.BLUE, Vector2(640, base_y))
+    layer.add_child(ground)
+
+    # Three small building silhouettes.
+    var pos := [380.0, 620.0, 860.0]
+    var widths := [80.0, 60.0, 74.0]
+    var heights := [54.0, 74.0, 50.0]
+    var cols := [Palette.DARK, Palette.LIGHT, Palette.DARK]
+    for i in 3:
+        var b := Props.poly(Props.rounded_rect(widths[i], heights[i], 6, 4),
+                            cols[i], Vector2(pos[i], base_y - heights[i] * 0.5 - 4))
+        layer.add_child(b)
+        # tiny window dots
+        for j in 2:
+            var w := Props.poly(Props.ellipse(4, 4, 6), Palette.GOLD,
+                                Vector2(pos[i] - widths[i] * 0.3 + j * widths[i] * 0.6,
+                                        base_y - heights[i] * 0.5 - 4))
+            w.modulate.a = 0.5
+            layer.add_child(w)
+
+    # Tiny player blob in centre.
+    var player_blob := Props.poly(Props.ellipse(10, 10, 14), Palette.BRIGHT,
+                                  Vector2(640, base_y - 8))
+    layer.add_child(player_blob)
 
 func _on_start() -> void:
     get_tree().change_scene_to_file("res://scenes/degree_select.tscn")

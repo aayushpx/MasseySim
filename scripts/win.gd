@@ -1,10 +1,6 @@
 extends Control
 ## WIN: Graduation screen. Shown when the exam is passed with GPA >= 55.
-
-const GOLD := Color("#e4a024")
-const LIGHT := Color("#4789C8")
-const WHITE := Color("#f0f5ff")
-const DARK := Color("#0A2240")
+## Real confetti rain, gold title pop-in, styled buttons.
 
 const ENDING_BLURBS := {
     "Computer Science": "You graduate with a CS degree and a toaster-load of debugging war stories.",
@@ -14,85 +10,66 @@ const ENDING_BLURBS := {
 }
 
 func _ready() -> void:
-    var bg := ColorRect.new()
-    bg.color = DARK
-    bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-    add_child(bg)
+    theme = UiKit.theme()
+    UiKit.backdrop(self, Color(0.06, 0.10, 0.22, 1.0))
 
-    var title := Label.new()
+    var title := UiKit.label("YOU GRADUATED!", 58, Palette.GOLD, true, 800)
     title.set_anchors_preset(Control.PRESET_TOP_WIDE)
-    title.position = Vector2(0, 80)
-    title.text = "YOU GRADUATED!"
-    title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    title.add_theme_font_size_override("font_size", 54)
-    title.add_theme_color_override("font_color", GOLD)
+    title.position = Vector2(0, 70)
     add_child(title)
+    UiKit.pop_in(title, 0.15)
 
-    var gpa_lbl := Label.new()
+    var gpa_lbl := UiKit.label("Final GPA: %.0f  -  pass line was 55." % GameState.gpa, 24, Palette.LIGHT, false, 600)
     gpa_lbl.set_anchors_preset(Control.PRESET_TOP_WIDE)
-    gpa_lbl.position = Vector2(0, 160)
-    gpa_lbl.text = "Final GPA: %.0f  -  pass line was 55." % GameState.gpa
-    gpa_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    gpa_lbl.add_theme_font_size_override("font_size", 24)
-    gpa_lbl.add_theme_color_override("font_color", LIGHT)
+    gpa_lbl.position = Vector2(0, 158)
     add_child(gpa_lbl)
+    UiKit.pop_in(gpa_lbl, 0.35)
 
-    var blurb := Label.new()
+    var blurb := UiKit.label(ENDING_BLURBS.get(GameState.degree, "You did it!"), 20, Palette.PAPER, false, 500)
     blurb.set_anchors_preset(Control.PRESET_CENTER)
     blurb.anchor_left = 0.5
     blurb.anchor_right = 0.5
     blurb.offset_left = -400
     blurb.offset_right = 400
-    blurb.offset_top = 220
-    blurb.offset_bottom = 300
-    blurb.text = ENDING_BLURBS.get(GameState.degree, "You did it!")
-    blurb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    blurb.offset_top = 210
+    blurb.offset_bottom = 290
     blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    blurb.add_theme_font_size_override("font_size", 20)
-    blurb.add_theme_color_override("font_color", WHITE)
     add_child(blurb)
+    UiKit.pop_in(blurb, 0.5)
 
-    var confetti := Label.new()
-    confetti.set_anchors_preset(Control.PRESET_CENTER)
-    confetti.anchor_left = 0.5
-    confetti.anchor_right = 0.5
-    confetti.offset_top = 320
-    confetti.offset_left = -200
-    confetti.offset_right = 200
-    confetti.text = "confetti.  (placeholder confetti.)"
-    confetti.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    confetti.add_theme_font_size_override("font_size", 14)
-    confetti.add_theme_color_override("font_color", Color("#5f7ca6"))
-    add_child(confetti)
-
-    var again := Button.new()
-    again.text = "PLAY AGAIN - new degree"
+    var again := UiKit.button("PLAY AGAIN - new degree", Vector2(360, 56), 20, 700, true)
     again.set_anchors_preset(Control.PRESET_CENTER)
     again.anchor_left = 0.5
     again.anchor_right = 0.5
     again.offset_left = -180
     again.offset_right = 180
-    again.offset_top = 380
-    again.custom_minimum_size = Vector2(360, 56)
-    again.add_theme_font_size_override("font_size", 20)
+    again.offset_top = 330
     again.pressed.connect(_on_again)
     add_child(again)
+    UiKit.pop_in(again, 0.7)
 
-    var menu := Button.new()
-    menu.text = "MAIN MENU"
+    var menu := UiKit.button("MAIN MENU", Vector2(360, 46), 17, 600)
     menu.set_anchors_preset(Control.PRESET_CENTER)
     menu.anchor_left = 0.5
     menu.anchor_right = 0.5
     menu.offset_left = -180
     menu.offset_right = 180
-    menu.offset_top = 452
-    menu.custom_minimum_size = Vector2(360, 48)
+    menu.offset_top = 406
     menu.pressed.connect(_on_menu)
     add_child(menu)
+    UiKit.pop_in(menu, 0.85)
+
+    var confetti_layer := CanvasLayer.new()
+    confetti_layer.layer = 60
+    add_child(confetti_layer)
+    UiKit.confetti(confetti_layer)
+    AudioFx.sfx("confirm")
+
+    UiKit.fade_in(self)
 
 func _on_again() -> void:
-    get_tree().change_scene_to_file("res://scenes/degree_select.tscn")
+    UiKit.fade_and_switch(self, "res://scenes/degree_select.tscn")
 
 func _on_menu() -> void:
     GameState.has_run_started = false
-    get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+    UiKit.fade_and_switch(self, "res://scenes/main_menu.tscn")
