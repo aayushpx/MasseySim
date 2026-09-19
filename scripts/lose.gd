@@ -24,35 +24,38 @@ func _ready() -> void:
     UiKit.pop_in(tag_lbl, 0.25)
 
     var reason := UiKit.label(GameState.lost_reason, 19, Palette.PAPER, false, 500)
-    reason.set_anchors_preset(Control.PRESET_CENTER)
     reason.anchor_left = 0.5
     reason.anchor_right = 0.5
+    reason.anchor_top = 0.0
+    reason.anchor_bottom = 0.0
     reason.offset_left = -460
     reason.offset_right = 460
-    reason.offset_top = 214
-    reason.offset_bottom = 300
+    reason.offset_top = 224
+    reason.offset_bottom = 318
     reason.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     add_child(reason)
     UiKit.pop_in(reason, 0.4)
 
     var again := UiKit.button("RETRY - pick a degree", Vector2(360, 56), 20, 700, true)
-    again.set_anchors_preset(Control.PRESET_CENTER)
     again.anchor_left = 0.5
     again.anchor_right = 0.5
+    again.anchor_top = 0.0
+    again.anchor_bottom = 0.0
     again.offset_left = -180
     again.offset_right = 180
-    again.offset_top = 330
+    again.offset_top = 348
     again.pressed.connect(_on_again)
     add_child(again)
     UiKit.pop_in(again, 0.6)
 
     var menu := UiKit.button("MAIN MENU", Vector2(360, 46), 17, 600)
-    menu.set_anchors_preset(Control.PRESET_CENTER)
     menu.anchor_left = 0.5
     menu.anchor_right = 0.5
+    menu.anchor_top = 0.0
+    menu.anchor_bottom = 0.0
     menu.offset_left = -180
     menu.offset_right = 180
-    menu.offset_top = 406
+    menu.offset_top = 424
     menu.pressed.connect(_on_menu)
     add_child(menu)
     UiKit.pop_in(menu, 0.75)
