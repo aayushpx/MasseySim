@@ -4,7 +4,7 @@ extends Control
 
 const ENDING_BLURBS := {
     "Computer Science": "You graduate with a CS degree and a toaster-load of debugging war stories.",
-    "Software Engineering": "You graduate in Software Engineering with an unshakable faith in stand-ups.",
+    "Software Engineering": "You graduate in Software Engineering with an unshakable faith in stand-ups and a sprint board that's still loading.",
     "Veterinary Science": "You graduate in Veterinary Science. The llamas finally accept you as an honourary member.",
     "Food Science": "You graduate in Food Science. The pavlova judges have spoken: DELICIOUS.",
 }

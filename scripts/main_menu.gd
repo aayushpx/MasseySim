@@ -31,7 +31,7 @@ func _ready() -> void:
     var controls := UiKit.label("Move: WASD / Arrows  |  Interact: E / Space\nTalk to the zones, survive the sem.", 13, Palette.FOG, false, 500)
     centre.add_child(controls)
 
-    var footer := UiKit.label("A fan-made parody for MUITSA Game Making Hackathon 2026.\nMusic: Kevin MacLeod (incompetech.com) - CC BY 4.0. SFX: Kenney.nl - CC0.", 10, Palette.LIGHT, false, 500)
+    var footer := UiKit.label("UNOFFICIAL fan-made parody - not affiliated with Massey University or MUITSA.\nMade for the MUITSA Game Making Hackathon 2026. Music: Kevin MacLeod (CC BY 4.0), SFX: Kenney.nl (CC0).", 10, Palette.LIGHT, false, 500)
     footer.modulate.a = 0.55
     centre.add_child(footer)
 

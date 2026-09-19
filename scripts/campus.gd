@@ -248,6 +248,7 @@ func _zone_decor(key: String, w: float, h: float) -> Node2D:
             out.append(CampusDecor.reading_table(Vector2(0, 20), 130))
             out.append(CampusDecor.reading_table(Vector2(-120, 110), 130))
             out.append(CampusDecor.reading_table(Vector2(120, 110), 130))
+            out.append(CampusDecor._text("TODAY'S SPECIAL: THE MEME SANDWICH (back by popular despair)", Vector2(-w * 0.5 + 30, -h * 0.5 + 28), 10, Palette.FOG, false, 600))
             return CampusDecor.group(out)
         "flat":
             var out: Array = []
@@ -255,6 +256,7 @@ func _zone_decor(key: String, w: float, h: float) -> Node2D:
             out.append(CampusDecor.bed(Vector2(120, 0), 120))
             out.append(CampusDecor.bookshelf(Vector2(-w * 0.5 + 34, -h * 0.5 + 70), 52, 110, 3))
             out.append(CampusDecor.reading_table(Vector2(0, 100), 90))
+            out.append(CampusDecor._text("FLAT BULLETIN: NAP, EAT, REPEAT.", Vector2(w * 0.5 - 185, -h * 0.5 + 30), 10, Palette.FOG, false, 600))
             return CampusDecor.group(out)
         "clubroom":
             var out: Array = []
@@ -267,7 +269,7 @@ func _zone_decor(key: String, w: float, h: float) -> Node2D:
         "exam":
             var out: Array = []
             out.append(CampusDecor.exam_rows(Vector2(0, -30), w, 6))
-            var clock_lbl := CampusDecor._text("EXAM PROCTORED. RESULTS TODAY.", Vector2(-150, -h * 0.5 + 18), 14, Palette.FOG, false, 700)
+            var clock_lbl := CampusDecor._text("FINALS WEEK. NO WIFI. ONLY CONSEQUENCES.", Vector2(-150, -h * 0.5 + 18), 14, Palette.FOG, false, 700)
             out.append(clock_lbl)
             var indent := Props.poly(Props.rounded_rect(120, 40, 8), Palette.INK, Vector2(0, -h * 0.5 + 52))
             out.append(indent)

@@ -122,7 +122,7 @@ func _check_lose() -> void:
 		lost_reason = "You collapsed from sleep deprivation outside the library. The ducks saw everything."
 		last_result = {"kind": "energy"}
 	elif stress >= STRESS_MAX:
-		lost_reason = "Burnout. The stress topped 100 and so did you (metaphorically)."
+		lost_reason = "Burnout at 100. The campus geese finally respected your hustle."
 		last_result = {"kind": "stress"}
 	elif gpa < SUSPEND_GPA:
 		lost_reason = "Academic suspension: your GPA slid under %d. The degree broke up with you first." % SUSPEND_GPA
@@ -133,9 +133,9 @@ func zone_options(zone: String) -> Array:
 	var out: Array = []
 	match zone:
 		"lecture":
-			out.append({"id": "lecture", "label": "Attend lecture (+GPA)"})
+			out.append({"id": "lecture", "label": "Attend the lecture (+GPA)"})
 		"library":
-			out.append({"id": "study", "label": "Study hard (+GPA, +Stress)"})
+			out.append({"id": "study", "label": "Study hard at The Spiral (+GPA, +Stress)"})
 			if day in ASSIGN_DAYS and not assignments_done.get(day, false):
 				out.append({"id": "assignment", "label": "Work on due assignment (!!)"})
 		"cafeteria":
@@ -188,7 +188,7 @@ func perform_option(zone: String, opt_id: String) -> String:
 				event_mode = {
 					"type": "pop_quiz", "category": "muitsa",
 					"title": "MUITSA Quiz Night - all degrees welcome",
-					"blurb": "Purple and gold everything. A real student society with chairs.",
+					"blurb": "Purple and gold, a microwave that has seen things, and a real code of conduct. It's a society.",
 				}
 				return _minigame_scene(event_mode)
 			_apply_and_finish(opt_id)
@@ -230,7 +230,7 @@ func _degree_event() -> Dictionary:
 			if day == 5 and slots_used == 1:
 				return {"type": "essay", "mode": "standup",
 						"title": "Sprint Stand-Up Sprint", "prompt": "Answer stand-up questions in the green zone",
-						"blurb": "The scrum master is counting down. Speak the sacred words."}
+						"blurb": "The scrum master is counting down and the sprint board is judging your soul. Speak the sacred words."}
 		"Veterinary Science":
 			if day == 4 and slots_used == 1:
 				return {"type": "pop_quiz", "category": "vet",
@@ -316,12 +316,13 @@ func finish_event(results: Dictionary) -> String:
 		"exam":
 			exam_taken = true
 			var c: int = results.get("correct", 0)
-			var bumps: Array[float] = [0.0, 1.0, 3.0, 5.0, 8.0, 11.0]
-			_add("gpa", bumps[clampi(c, 0, 5)])
+			var total: int = results.get("total", 6)
+			var bumps: Array[float] = [0.0, 1.0, 3.0, 5.0, 8.0, 11.0, 14.0]
+			_add("gpa", bumps[clampi(c, 0, 6)])
 			_add("stress", 6.0)
-			toast_message = "Finals wrapped: %d/5 correct." % c
+			toast_message = "Finals wrapped: %d/%d correct. The hall exhales." % [c, total]
 			if gpa < PASS_GPA:
-				lost_reason = "Finals done, but GPA %.0f didn't clear the 55 pass line. Valid effort, invalid degree." % gpa
+				lost_reason = "Finals done, but GPA %.0f didn't clear the 55 pass line. A valiant effort, very un-signed papers." % gpa
 				last_result = {"kind": "examfail", "gpa": gpa}
 		"essay":
 			var g: int = results.get("greens", 0)
@@ -341,7 +342,7 @@ func finish_event(results: Dictionary) -> String:
 			_add("energy", -4.0)
 			_add("gpa", 2.0)
 			if hits == 0:
-				toast_message = "Sprinted in geese-free and on time! GPA +2"
+				toast_message = "Sprinted into lecture geese-free and on time! GPA +2"
 			else:
 				toast_message = "Made it to class (geese: %d hits, dignity: damaged). GPA +2" % hits
 	event_mode = {}

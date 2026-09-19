@@ -190,7 +190,7 @@ func _green_line() -> String:
 func _miss_line() -> String:
 	match mode_name:
 		"standup": return "The scrum master is unmoved. Yikes."
-		"pavlova": return "The judge writes something ominous."
+		"pavlova": return "The judge writes something ominous about the texture."
 		_: return "The Wi-Fi flickers. You did your best."
 	return ""
 
