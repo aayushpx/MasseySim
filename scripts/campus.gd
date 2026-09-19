@@ -23,8 +23,8 @@ const ZONE_DEFS := {
 @onready var player: CharacterBody2D = $Player
 var current_zone := ""
 var popup: PanelContainer
-var prompt_lbl: Label
-var toast_lbl: Label
+var prompt_chip: PromptChip
+var toast_chip: PromptChip
 var toast_panel: PanelContainer
 var day_lbl: Label
 var slot_lbl: Label
@@ -62,13 +62,13 @@ func _process(_delta: float) -> void:
         var zone_name: String = ZONE_DEFS[current_zone]["label"]
         var opts: Array = GameState.zone_options(current_zone)
         if opts.is_empty():
-            prompt_lbl.text = ""
+            prompt_chip.text = ""
         else:
-            prompt_lbl.text = "Press E  -  %s" % zone_name
+            prompt_chip.text = "Press E  -  %s" % zone_name
         if Input.is_action_just_pressed("interact") and opts.size() > 0:
             _open_popup(current_zone)
     elif current_zone == "":
-        prompt_lbl.text = ""
+        prompt_chip.text = ""
 
 ## Cheap Billboard-style depth: inside a depth zone the player lifts above the
 ## decor, and each tall prop flips on top of the player when its front edge is
@@ -324,41 +324,43 @@ func _build_hud() -> void:
         slot_pills.append(pill)
     vbox.add_child(slots_row)
 
-    # Quit button (text-only, quiet).
+    # Quit button (chip-backed so it stays readable over open art).
     var quit := Button.new()
     quit.text = "Menu"
-    quit.flat = true
     quit.add_theme_font_override("font", CampusDecor.body_font(500))
     quit.add_theme_font_size_override("font_size", 12)
     quit.add_theme_color_override("font_color", Palette.FOG)
     quit.add_theme_color_override("font_hover_color", Palette.GOLD)
     quit.position = Vector2(16, 330)
+    quit.add_theme_stylebox_override("normal", _chip_style())
+    var hover := _chip_style()
+    hover.bg_color.a = 0.95
+    hover.border_color = Palette.GOLD
+    quit.add_theme_stylebox_override("hover", hover)
+    quit.add_theme_stylebox_override("pressed", hover)
+    quit.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
     quit.pressed.connect(_on_menu)
     ui.add_child(quit)
 
     # --- Prompt chip (bottom centre).
-    prompt_lbl = Label.new()
-    prompt_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    prompt_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    prompt_lbl.position = Vector2(390, 680)
-    prompt_lbl.size = Vector2(500, 34)
-    prompt_lbl.add_theme_font_override("font", CampusDecor.body_font(600))
-    prompt_lbl.add_theme_font_size_override("font_size", 15)
-    prompt_lbl.add_theme_color_override("font_color", Palette.GOLD)
-    prompt_lbl.draw.connect(_draw_prompt_chip.bind(prompt_lbl))
-    ui.add_child(prompt_lbl)
+    prompt_chip = PromptChip.new()
+    prompt_chip.position = Vector2(390, 680)
+    prompt_chip.size = Vector2(500, 34)
+    prompt_chip.chip_width = 300
+    prompt_chip.font_weight = 600
+    prompt_chip.font_size = 18
+    prompt_chip.text_color = Palette.GOLD
+    ui.add_child(prompt_chip)
 
     # --- Toast.
-    toast_lbl = Label.new()
-    toast_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    toast_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    toast_lbl.position = Vector2(240, 60)
-    toast_lbl.size = Vector2(800, 40)
-    toast_lbl.add_theme_font_override("font", CampusDecor.body_font(500))
-    toast_lbl.add_theme_font_size_override("font_size", 17)
-    toast_lbl.add_theme_color_override("font_color", Palette.PAPER)
-    toast_lbl.draw.connect(_draw_toast_chip.bind(toast_lbl))
-    ui.add_child(toast_lbl)
+    toast_chip = PromptChip.new()
+    toast_chip.position = Vector2(240, 60)
+    toast_chip.size = Vector2(800, 40)
+    toast_chip.chip_width = 460
+    toast_chip.font_weight = 500
+    toast_chip.font_size = 18
+    toast_chip.text_color = Palette.PAPER
+    ui.add_child(toast_chip)
 
     # --- Action popup.
     popup = PanelContainer.new()
@@ -443,20 +445,6 @@ func _draw_pill(ci: int, pill: Control) -> void:
     else:
         pill.draw_string(CampusDecor.body_font(600), Vector2(6, 14), names[ci], HORIZONTAL_ALIGNMENT_LEFT, track.size.x, 10, Palette.FOG)
     pill.draw_rect(track, Palette.PAPER, false, 1.0)
-
-func _draw_prompt_chip(lbl: Control) -> void:
-    if lbl.text == "":
-        return
-    var sz := lbl.size
-    var box := Rect2(Vector2(sz.x * 0.5 - 150, 0), Vector2(300, sz.y))
-    lbl.draw_style_box(_chip_style(), box)
-
-func _draw_toast_chip(lbl: Control) -> void:
-    if lbl.text == "":
-        return
-    var sz := lbl.size
-    var box := Rect2(Vector2(sz.x * 0.5 - 230, 0), Vector2(460, sz.y))
-    lbl.draw_style_box(_chip_style(), box)
 
 func _chip_style() -> StyleBoxFlat:
     var s := StyleBoxFlat.new()
@@ -618,14 +606,13 @@ func _refresh_hud() -> void:
 
     # Toast logic (unchanged rules).
     if GameState.day in GameState.ASSIGN_DAYS and not GameState.assignments_done.get(GameState.day, false):
-        toast_lbl.text = "Today: an assignment is DUE at the library!"
+        toast_chip.text = "Today: an assignment is DUE at the library!"
     elif GameState.day == 7 and not GameState.exam_taken:
-        toast_lbl.text = "FINALS DAY. Get to the Exam Hall!"
+        toast_chip.text = "FINALS DAY. Get to the Exam Hall!"
     elif GameState.toast_message != "":
-        toast_lbl.text = GameState.toast_message
+        toast_chip.text = GameState.toast_message
     else:
-        toast_lbl.text = ""
-    toast_lbl.queue_redraw()
+        toast_chip.text = ""
 
     if d != _last_day:
         _last_day = d
