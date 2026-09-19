@@ -150,7 +150,11 @@ func _process(delta: float) -> void:
 			else:
 				state = State.WAIT
 				feedback_lbl.text = ""
-				needle_inner.color = Palette.GOLD
+				# Panel has no .color; retint through a flat stylebox (byte-owner fix).
+				var _sr := StyleBoxFlat.new()
+				_sr.bg_color = Palette.GOLD
+				_sr.set_corner_radius_all(2)
+				needle_inner.add_theme_stylebox_override("panel", _sr)
 				_update_attempts_lbl()
 
 func _judge_tap() -> void:
