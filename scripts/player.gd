@@ -17,9 +17,18 @@ var rear_panel: Polygon2D
 var anim: AnimationPlayer
 var sprint_dust: CPUParticles2D
 var acc: Node2D
+var cam_node: Camera2D
+
+## Soft dark blob under the player: grounds the character in the scene and
+## doubles as a cheap standing depth cue. Sits below the whole rig.
+func _build_shadow() -> void:
+	var sh := Props.poly(Props.ellipse(13.0, 5.5, 16), Color(0.0, 0.0, 0.0, 0.28), Vector2(3, 9), -1)
+	sh.name = "Shadow"
+	add_child(sh)
 
 func _ready() -> void:
 	_build_rig()
+	_build_shadow()
 	_build_animation()
 	_build_accessory()
 
@@ -30,8 +39,10 @@ func _ready() -> void:
 	add_child(shape)
 
 	var cam := Camera2D.new()
+	cam.name = "PlayerCam"          # auto-rename breaks get_node("Camera2D")
 	cam.position_smoothing_enabled = true
 	cam.position_smoothing_speed = 7.0
+	cam_node = cam
 	add_child(cam)
 	_register_sprint()
 	_build_sprint_dust()

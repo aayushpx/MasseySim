@@ -32,8 +32,8 @@ const LEAF := Color("#3f8f5f")
 
 # --- Time-of-day tint (slot -> CanvasModulate colour) --------------------
 const TINT_MORNING := Color("#ffffff")
-const TINT_AFTERNOON := Color("#ffe7bf")
-const TINT_EVENING := Color("#c4d2ea")
+const TINT_AFTERNOON := Color("#ffd99c")
+const TINT_EVENING := Color("#a4bde6")
 
 static func slot_tint(slot_name: String) -> Color:
     match slot_name:

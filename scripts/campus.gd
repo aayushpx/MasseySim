@@ -7,6 +7,8 @@ extends Node2D
 const WORLD_W := 2400.0
 const WORLD_H := 1800.0
 const TINT_TWEEN := 0.6
+const PLAYER_Z := 8
+const DEPTH_BEHIND := 12
 
 # zone_key -> {pos, size, label, floor tone, decor builder name}
 const ZONE_DEFS := {
@@ -36,6 +38,7 @@ var _tint_tween: Tween
 var cam: Camera2D
 var _last_day := -1
 var _prev_meters := {"energy": 70.0, "stress": 30.0, "gpa": 60.0}
+var _depth_zones := {}   # zone_key -> {zone, pairs: [{node, y}]}
 
 func _ready() -> void:
     _build_ground()
@@ -54,6 +57,7 @@ func _process(_delta: float) -> void:
     if not GameState.has_run_started:
         _apply_slot_tint(Palette.TINT_MORNING)
         return
+    _update_depth()
     if current_zone != "" and not popup.visible:
         var zone_name: String = ZONE_DEFS[current_zone]["label"]
         var opts: Array = GameState.zone_options(current_zone)
@@ -65,6 +69,26 @@ func _process(_delta: float) -> void:
             _open_popup(current_zone)
     elif current_zone == "":
         prompt_lbl.text = ""
+
+## Cheap Billboard-style depth: inside a depth zone the player lifts above the
+## decor, and each tall prop flips on top of the player when its front edge is
+## below the player's feet (player walks "behind" it). Resets outside the zone.
+func _update_depth() -> void:
+    var active: bool = current_zone != "" and _depth_zones.has(current_zone)
+    var pz: int = PLAYER_Z if active else 0
+    if player.z_index != pz:
+        player.z_index = pz
+    for key in _depth_zones:
+        var entry: Dictionary = _depth_zones[key]
+        var zone: Node2D = entry["zone"]
+        var base_y: float = zone.global_position.y
+        for pair in entry["pairs"]:
+            var node: Node2D = pair["node"]
+            var z: int = 0
+            if active and key == current_zone:
+                z = DEPTH_BEHIND if player.global_position.y < base_y + float(pair["y"]) else 0
+            if node.z_index != z:
+                node.z_index = z
 
 # --- World ---------------------------------------------------------------
 
@@ -143,6 +167,11 @@ func _build_zones() -> void:
         var decor := _zone_decor(key, w, h)
         if decor != null:
             zone.add_child(decor)
+
+        # Classroom prototype: real Light2D rig + walk-behind-tall-props depth.
+        if key == "lecture":
+            zone.add_child(StageLights.classroom(w, h))
+            _depth_zones[key] = {"zone": zone, "pairs": decor.get_meta("depth_pairs", [])}
 
         # Sign chip above the door line.
         zone.add_child(_make_sign(key, def["label"]))
@@ -367,13 +396,13 @@ func _build_hud() -> void:
     wipe_lbl.modulate.a = 0.0
     ui.add_child(wipe_lbl)
 
-    # --- Atmosphere: vignette (world layer 5, under HUD).
+    # --- Atmosphere: cinema pass (vignette + Massey grade + grain, world layer 5).
     var vig := ColorRect.new()
     vig.anchor_right = 1.0
     vig.anchor_bottom = 1.0
     vig.mouse_filter = Control.MOUSE_FILTER_IGNORE
     var vmat := ShaderMaterial.new()
-    vmat.shader = load("res://assets/shaders/vignette.gdshader")
+    vmat.shader = load("res://assets/shaders/cinema.gdshader")
     vig.material = vmat
     var vig_layer := CanvasLayer.new()
     vig_layer.layer = 5
@@ -460,7 +489,7 @@ func _build_popup_children() -> void:
     box.add_child(options_box)
 
 func _setup_camera() -> void:
-    var pj := player.get_node_or_null("Camera2D") as Camera2D
+    var pj := player.cam_node as Camera2D
     if pj == null:
         return
     cam = pj

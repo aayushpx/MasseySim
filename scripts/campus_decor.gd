@@ -51,12 +51,32 @@ static func _text(text: String, pos: Vector2, size: int, col: Color, display: bo
 
 # --- Zones -----------------------------------------------------------------
 
+## Soft elliptical drop shadow under a prop: dark, translucent, set just
+## below the object's z so it paints on the floor plate.
+static func soft_shadow(sx: float, sy: float, pos: Vector2, alpha: float = 0.26) -> Polygon2D:
+	return Props.poly(Props.ellipse(sx, sy, 16), Color(0.0, 0.0, 0.0, alpha), pos, 0)
+
 ## Lecture hall dressing. plate = floor rect (w,h centred on origin).
 static func lecture_hall(w: float, h: float) -> Node2D:
 	var out: Array = []
+	var depth: Array = []
 
-	out.append(_rrect(w - 40, 34, 6, Palette.INK, Vector2(0, -h * 0.5 + 60)))
-	out.append(_rrect(150, 84, 4, Palette.PAPER, Vector2(0, -h * 0.5 + 34), 2))
+	# Drop shadows, painted before every prop so furniture sits in them.
+	for r in 3:
+		out.append(soft_shadow(w * 0.5 - 30, 7, Vector2(0, -h * 0.5 + 138 + r * 44), 0.20))
+	var shelf_l := bookshelf(Vector2(-w * 0.5 + 34, 0), 58, 150, 3)
+	var shelf_r := bookshelf(Vector2(w * 0.5 - 34, 0), 58, 150, 3)
+	var plant_tl := plant(Vector2(-w * 0.5 + 22, -h * 0.5 + 110))
+	var plant_tr := plant(Vector2(w * 0.5 - 22, -h * 0.5 + 110))
+	out.append(soft_shadow(34, 12, Vector2(-w * 0.5 + 34, 78), 0.28))
+	out.append(soft_shadow(34, 12, Vector2(w * 0.5 - 34, 78), 0.28))
+	out.append(soft_shadow(13, 7, Vector2(-w * 0.5 + 24, -h * 0.5 + 116)))
+	out.append(soft_shadow(13, 7, Vector2(w * 0.5 - 24, -h * 0.5 + 116)))
+
+	var plinth := _rrect(w - 40, 34, 6, Palette.INK, Vector2(0, -h * 0.5 + 60))
+	var board := _rrect(150, 84, 4, Palette.PAPER, Vector2(0, -h * 0.5 + 34), 2)
+	out.append(plinth)
+	out.append(board)
 	out.append(_rrect(150 + 8, 4, 1.5, Palette.INK, Vector2(0, -h * 0.5 + 77), 3))
 	out.append(_rrect(110, 22, 3, Palette.LIGHT, Vector2(0, -h * 0.5 + 33), 3))
 	out.append(_rrect(34, 24, 4, Palette.GOLD, Vector2(-54, -h * 0.5 + 78), 3))
@@ -73,12 +93,23 @@ static func lecture_hall(w: float, h: float) -> Node2D:
 			out.append(_rrect(58, 3, 1.5, Palette.INK, Vector2(x, y - 10), 3))
 			out.append(_rrect(20, 20, 6, Palette.BRIGHT, Vector2(x, y + 12), 2))
 
-	out.append(bookshelf(Vector2(-w * 0.5 + 34, 0), 58, 150, 3))
-	out.append(bookshelf(Vector2(w * 0.5 - 34, 0), 58, 150, 3))
-	out.append(plant(Vector2(-w * 0.5 + 22, -h * 0.5 + 110)))
-	out.append(plant(Vector2(w * 0.5 - 22, -h * 0.5 + 110)))
+	out.append(shelf_l)
+	out.append(shelf_r)
+	out.append(plant_tl)
+	out.append(plant_tr)
 	out.append(classroom_life(w, h))
-	return group(out)
+
+	# Tall props the player can step behind: (node, front-edge_y in zone coords).
+	depth.append({"node": plinth, "y": -h * 0.5 + 77})
+	depth.append({"node": board, "y": -h * 0.5 + 76})
+	depth.append({"node": shelf_l, "y": 75})
+	depth.append({"node": shelf_r, "y": 75})
+	depth.append({"node": plant_tl, "y": -h * 0.5 + 115})
+	depth.append({"node": plant_tr, "y": -h * 0.5 + 115})
+	var n := group(out)
+	n.name = "Decor"
+	n.set_meta("depth_pairs", depth)
+	return n
 
 ## Ambient life for the lecture hall: clock, dust motes, a plant, a silhouette.
 static func classroom_life(w: float, h: float) -> Node2D:
