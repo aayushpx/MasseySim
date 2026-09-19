@@ -25,7 +25,6 @@ var current_zone := ""
 var popup: PanelContainer
 var prompt_chip: PromptChip
 var toast_chip: PromptChip
-var toast_panel: PanelContainer
 var day_lbl: Label
 var slot_lbl: Label
 var wipe: ColorRect
@@ -332,21 +331,16 @@ func _build_hud() -> void:
     quit.add_theme_color_override("font_color", Palette.FOG)
     quit.add_theme_color_override("font_hover_color", Palette.GOLD)
     quit.position = Vector2(16, 330)
-    quit.add_theme_stylebox_override("normal", _chip_style())
-    var hover := _chip_style()
-    hover.bg_color.a = 0.95
-    hover.border_color = Palette.GOLD
-    quit.add_theme_stylebox_override("hover", hover)
-    quit.add_theme_stylebox_override("pressed", hover)
+    quit.add_theme_stylebox_override("normal", PromptChip.chip_style())
+    quit.add_theme_stylebox_override("hover", PromptChip.chip_style(0.95, true))
+    quit.add_theme_stylebox_override("pressed", PromptChip.chip_style(0.95, true))
     quit.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
     quit.pressed.connect(_on_menu)
     ui.add_child(quit)
 
     # --- Prompt chip (bottom centre).
     prompt_chip = PromptChip.new()
-    prompt_chip.position = Vector2(390, 680)
-    prompt_chip.size = Vector2(500, 34)
-    prompt_chip.chip_width = 300
+    prompt_chip.center = Vector2(640, 690)
     prompt_chip.font_weight = 600
     prompt_chip.font_size = 18
     prompt_chip.text_color = Palette.GOLD
@@ -354,9 +348,7 @@ func _build_hud() -> void:
 
     # --- Toast.
     toast_chip = PromptChip.new()
-    toast_chip.position = Vector2(240, 60)
-    toast_chip.size = Vector2(800, 40)
-    toast_chip.chip_width = 460
+    toast_chip.center = Vector2(640, 80)
     toast_chip.font_weight = 500
     toast_chip.font_size = 18
     toast_chip.text_color = Palette.PAPER
@@ -421,7 +413,7 @@ func _panel_style() -> StyleBoxFlat:
     s.bg_color = Color(0.02, 0.06, 0.13, 0.93)
     s.border_color = Palette.GOLD
     s.set_border_width_all(1)
-    s.set_corner_radius_all(12)
+    s.set_corner_radius_all(PromptChip.CHIP_RADIUS + 2)
     s.shadow_color = Color(0.0, 0.0, 0.0, 0.45)
     s.shadow_size = 10
     s.content_margin_left = 18
@@ -433,26 +425,31 @@ func _panel_style() -> StyleBoxFlat:
 func _draw_pill(ci: int, pill: Control) -> void:
     if pill.size.x <= 0:
         return
-    var track := Rect2(Vector2(3, 3), pill.size - Vector2(6, 6))
-    pill.draw_rect(track, Palette.SUNK, true)
+    var track := Rect2(Vector2(2, 2), pill.size - Vector2(4, 4))
     var names := ["MORNING", "AFTERNOON", "EVENING"]
+    var fill := Palette.SUNK
     if ci < GameState.slots_used:
-        pill.draw_rect(track, Palette.GOLD, true)
-        pill.draw_string(CampusDecor.body_font(700), Vector2(6, 14), names[ci], HORIZONTAL_ALIGNMENT_LEFT, track.size.x, 10, Palette.DARK)
+        fill = Palette.GOLD
     elif ci == GameState.slots_used:
-        pill.draw_rect(track, Palette.BRIGHT, true)
-        pill.draw_string(CampusDecor.body_font(700), Vector2(6, 14), names[ci], HORIZONTAL_ALIGNMENT_LEFT, track.size.x, 10, Palette.DARK)
-    else:
-        pill.draw_string(CampusDecor.body_font(600), Vector2(6, 14), names[ci], HORIZONTAL_ALIGNMENT_LEFT, track.size.x, 10, Palette.FOG)
-    pill.draw_rect(track, Palette.PAPER, false, 1.0)
-
-func _chip_style() -> StyleBoxFlat:
-    var s := StyleBoxFlat.new()
-    s.bg_color = Color(0.02, 0.06, 0.13, 0.85)
-    s.set_corner_radius_all(10)
-    s.border_color = Palette.BLUE
-    s.set_border_width_all(1)
-    return s
+        fill = Palette.BRIGHT
+    var cap := StyleBoxFlat.new()
+    cap.bg_color = fill
+    cap.set_corner_radius_all(track.size.y * 0.5)
+    pill.draw_style_box(cap, track)
+    var f: Font = CampusDecor.body_font(700 if ci < GameState.slots_used or ci == GameState.slots_used else 600)
+    var size := 10
+    var ascend: float = f.get_ascent(size)
+    var descend: float = f.get_descent(size)
+    var baseline: float = (track.position.y + track.size.y * 0.5) + (ascend - descend) * 0.5
+    var col := Palette.DARK if fill != Palette.SUNK else Palette.FOG
+    pill.draw_string(f, Vector2(track.position.x, baseline), names[ci], HORIZONTAL_ALIGNMENT_CENTER, track.size.x, size, col)
+    var outline := StyleBoxFlat.new()
+    outline.draw_center = false
+    outline.bg_color = Color.TRANSPARENT
+    outline.border_color = Palette.PAPER
+    outline.set_border_width_all(1)
+    outline.set_corner_radius_all(track.size.y * 0.5)
+    pill.draw_style_box(outline, track)
 
 func _build_popup_children() -> void:
     var box := VBoxContainer.new()
@@ -545,11 +542,11 @@ func _open_popup(zone: String) -> void:
 func _btn_style(col: Color) -> StyleBoxFlat:
     var s := StyleBoxFlat.new()
     s.bg_color = col
-    s.set_corner_radius_all(8)
-    s.content_margin_left = 14
-    s.content_margin_right = 14
-    s.content_margin_top = 10
-    s.content_margin_bottom = 10
+    s.set_corner_radius_all(PromptChip.CHIP_RADIUS)
+    s.content_margin_left = PromptChip.PAD_X
+    s.content_margin_right = PromptChip.PAD_X
+    s.content_margin_top = PromptChip.PAD_Y
+    s.content_margin_bottom = PromptChip.PAD_Y
     return s
 
 func _popup_enter_tween(p: Control) -> void:
